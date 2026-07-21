@@ -1,0 +1,40 @@
+# Self-CI for this repository: lint the reusable workflows with actionlint, and
+# dogfood the repo's own reusable Markdown workflows against its docs.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * *'   # daily 06:00 UTC — external URL sweep (markdown-links)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: actionlint
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: actionlint
+        uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color
+
+  markdown-lint:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    uses: ./.github/workflows/markdown-lint.yml
+
+  markdown-links:
+    # Internal (offline, blocking) on PR/push; external (issue-reporting) on the
+    # daily schedule / dispatch — the reusable workflow self-selects by event.
+    uses: ./.github/workflows/markdown-links.yml
+    permissions:
+      contents: read
+      issues: write
+    secrets:
+      LYCHEE_GITHUB_TOKEN: ${{ secrets.LYCHEE_GITHUB_TOKEN }}

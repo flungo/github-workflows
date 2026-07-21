@@ -5,4 +5,4 @@ Step-by-step operational procedures for repeatable tasks — task-oriented how-t
 | Document | Purpose |
 |---|---|
 | [`adopting-terraform-workflows.md`](adopting-terraform-workflows.md) | How a Terraform repo calls `terraform.yml` / `terraform-drift.yml` — inputs, secrets, and copy-paste callers |
-| [`adopting-markdown-workflows.md`](adopting-markdown-workflows.md) | How any repo adopts the Markdown lint/link workflows — callers and per-repo config |
+| [`adopting-markdown-workflows.md`](adopting-markdown-workflows.md) | How any repo adopts the Markdown lint/link workflows — callers, per-repo config, the check-then-fix commit procedure, the semantic-line-break reflow, and the generic `CLAUDE.md` cross-reference block |

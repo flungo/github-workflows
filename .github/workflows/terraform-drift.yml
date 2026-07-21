@@ -1,0 +1,245 @@
+# Reusable daily drift-remediation workflow.
+#
+# Applies the caller's default branch on a schedule so live state cannot
+# silently diverge. Never auto-applies destroys (opens a review issue instead),
+# opens/closes a `drift`-labelled issue to notify, and honours two pause
+# mechanisms in the caller repo: the DRIFT_REMEDIATION_PAUSED variable (quick)
+# and a committed .drift-paused file (auditable). Opt-in — wire this only for
+# repos with auto-rotating credentials that must stay authoritative.
+#
+# The caller keeps the `schedule` trigger (reusable workflows can't be
+# scheduled directly) and passes force_run through from its workflow_dispatch.
+#
+# working-directory is set per-step (not via `defaults.run`): defaults.run does
+# not evaluate ${{ }} expressions.
+name: Terraform Drift Remediation
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory to run Terraform in (the root module).
+        type: string
+        default: '.'
+      terraform-version:
+        description: Terraform version for setup-terraform (default latest).
+        type: string
+        default: latest
+      concurrency-group:
+        description: Concurrency group; share it with the caller's plan/apply workflow.
+        type: string
+        default: terraform
+      tf-var-name:
+        description: Env var name for the provider token, e.g. TF_VAR_github_token. Empty = none.
+        type: string
+        default: ''
+      force_run:
+        description: Run even if remediation is paused (variable or .drift-paused file).
+        type: boolean
+        default: false
+    secrets:
+      TF_TOKEN_APP_TERRAFORM_IO:
+        description: HCP Terraform token for the state backend.
+        required: true
+      provider_token:
+        description: Provider credential, exported as ${tf-var-name} for Terraform.
+        required: false
+
+concurrency:
+  group: ${{ inputs.concurrency-group }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    if: vars.DRIFT_REMEDIATION_PAUSED != 'true' || inputs.force_run
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+      TF_INPUT: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      # The DRIFT_REMEDIATION_PAUSED repository variable is the quick, unaudited
+      # emergency brake (handled by the job-level `if`). A committed .drift-paused
+      # file is the auditable brake for a change set spanning multiple PRs: drop
+      # it in the first PR, remove it in the last. force_run overrides both.
+      - name: Check committed pause
+        id: pause
+        run: |
+          if [ -f .drift-paused ] && [ "${{ inputs.force_run }}" != "true" ]; then
+            echo "::notice::Drift remediation paused by committed .drift-paused file; skipping."
+            echo "----- .drift-paused -----"
+            cat .drift-paused
+            echo "paused=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "paused=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Export provider token
+        if: steps.pause.outputs.paused != 'true' && inputs.tf-var-name != ''
+        env:
+          PROVIDER_TOKEN: ${{ secrets.provider_token }}
+          VAR_NAME: ${{ inputs.tf-var-name }}
+        run: |
+          echo "::add-mask::$PROVIDER_TOKEN"
+          echo "$VAR_NAME=$PROVIDER_TOKEN" >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.pause.outputs.paused != 'true'
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+
+      - name: Init
+        if: steps.pause.outputs.paused != 'true'
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform init
+
+      - name: Plan
+        id: plan
+        if: steps.pause.outputs.paused != 'true'
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set +e
+          terraform plan -no-color -detailed-exitcode -out=tfplan > plan.txt 2>&1
+          EXITCODE=$?
+          echo "exitcode=$EXITCODE" >> "$GITHUB_OUTPUT"
+          if grep -qE '^Plan:.*[1-9][0-9]* to destroy' plan.txt; then
+            echo "has_destroys=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_destroys=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat plan.txt
+
+      - name: Apply
+        id: apply
+        if: steps.plan.outputs.exitcode == '2' && steps.plan.outputs.has_destroys != 'true'
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform apply -auto-approve -no-color tfplan
+
+      - name: Open drift issue
+        if: steps.plan.outputs.exitcode == '2' && steps.plan.outputs.has_destroys != 'true' && steps.apply.outcome == 'success'
+        uses: actions/github-script@v7
+        env:
+          WORKDIR: ${{ inputs.working-directory }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const plan = fs.readFileSync(path.join(process.env.WORKDIR || '.', 'plan.txt'), 'utf8');
+            const truncated = plan.length > 60000
+              ? plan.substring(0, 60000) + '\n...(truncated — see job logs for full output)'
+              : plan;
+
+            const label = 'drift';
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner, repo: context.repo.repo, name: label,
+              });
+            } catch {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: label, color: 'e11d48',
+                description: 'Terraform drift was detected and remediated',
+              });
+            }
+
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const date = new Date().toISOString().slice(0, 10);
+            const body = [
+              `Drift was detected and remediated by the daily drift-remediation workflow.`,
+              ``,
+              `**Run:** ${runUrl}`,
+              ``,
+              `<details><summary>Plan output</summary>`,
+              ``,
+              `\`\`\``,
+              truncated,
+              `\`\`\``,
+              `</details>`,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `Terraform drift detected and remediated — ${date}`,
+              body,
+              labels: [label],
+            });
+
+      - name: Open destroy review issue
+        if: steps.plan.outputs.exitcode == '2' && steps.plan.outputs.has_destroys == 'true'
+        uses: actions/github-script@v7
+        env:
+          WORKDIR: ${{ inputs.working-directory }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const plan = fs.readFileSync(path.join(process.env.WORKDIR || '.', 'plan.txt'), 'utf8');
+            const truncated = plan.length > 60000
+              ? plan.substring(0, 60000) + '\n...(truncated — see job logs for full output)'
+              : plan;
+
+            const label = 'drift';
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner, repo: context.repo.repo, name: label,
+              });
+            } catch {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo,
+                name: label, color: 'e11d48',
+                description: 'Terraform drift was detected and remediated',
+              });
+            }
+
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const date = new Date().toISOString().slice(0, 10);
+            const body = [
+              `Drift was detected but **not automatically applied** because the plan contains resource destructions.`,
+              `Manual review and apply is required.`,
+              ``,
+              `**Run:** ${runUrl}`,
+              ``,
+              `<details><summary>Plan output</summary>`,
+              ``,
+              `\`\`\``,
+              truncated,
+              `\`\`\``,
+              `</details>`,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `Terraform drift requires manual review (destroys detected) — ${date}`,
+              body,
+              labels: [label],
+            });
+
+      - name: Close open drift issues on clean run
+        if: steps.plan.outputs.exitcode == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              labels: 'drift', state: 'open',
+            });
+            for (const issue of issues) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number, state: 'closed',
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `No drift detected on ${new Date().toISOString().slice(0, 10)} — closing.`,
+              });
+            }
+
+      - name: Fail on plan error
+        if: steps.plan.outputs.exitcode == '1'
+        run: exit 1

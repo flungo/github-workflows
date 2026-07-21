@@ -1,0 +1,196 @@
+# Reusable Terraform plan/apply workflow.
+#
+# Plan on pull_request (posted as an upserted PR comment), apply on push to the
+# caller's default branch or on a workflow_dispatch with operation=apply. HCP
+# Terraform in Local execution mode — this runner is the executor; HCP holds
+# state only. See docs/terraform-workflow.md for the full contract.
+#
+# The provider token is passed generically: the caller supplies `tf-var-name`
+# (the TF_VAR_* env var name) and the `provider_token` secret, so this file
+# names no specific provider.
+#
+# working-directory is set per-step (not via `defaults.run`): defaults.run
+# does not evaluate ${{ }} expressions.
+name: Terraform
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory to run Terraform in (the root module).
+        type: string
+        default: '.'
+      terraform-version:
+        description: Terraform version for setup-terraform (default latest).
+        type: string
+        default: latest
+      concurrency-group:
+        description: Concurrency group; share it with the caller's drift workflow so the two never overlap.
+        type: string
+        default: terraform
+      plan-comment-marker:
+        description: Hidden marker used to find and update this repo's plan comment.
+        type: string
+        default: '<!-- terraform-plan -->'
+      tf-var-name:
+        description: Env var name for the provider token, e.g. TF_VAR_github_token. Empty = no provider token.
+        type: string
+        default: ''
+      operation:
+        description: Pass-through of the caller's workflow_dispatch operation input (plan or apply).
+        type: string
+        default: plan
+    secrets:
+      TF_TOKEN_APP_TERRAFORM_IO:
+        description: HCP Terraform token for the state backend.
+        required: true
+      provider_token:
+        description: Provider credential, exported as ${tf-var-name} for Terraform.
+        required: false
+
+concurrency:
+  group: ${{ inputs.concurrency-group }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+      TF_INPUT: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export provider token
+        if: inputs.tf-var-name != ''
+        env:
+          PROVIDER_TOKEN: ${{ secrets.provider_token }}
+          VAR_NAME: ${{ inputs.tf-var-name }}
+        run: |
+          echo "::add-mask::$PROVIDER_TOKEN"
+          echo "$VAR_NAME=$PROVIDER_TOKEN" >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+
+      - name: Init
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform init
+
+      - name: Format
+        id: fmt
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Validate
+        id: validate
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform validate -no-color
+
+      - name: Plan
+        id: plan
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -o pipefail
+          terraform plan -json -out=tfplan | tee plan.jsonl
+        continue-on-error: true
+
+      - name: Plan display
+        id: plan_show
+        if: steps.plan.outcome == 'success'
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform show -no-color tfplan > plan.txt
+        continue-on-error: true
+
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          WORKDIR: ${{ inputs.working-directory }}
+          MARKER: ${{ inputs.plan-comment-marker }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const wd = process.env.WORKDIR || '.';
+            const marker = process.env.MARKER;
+
+            // Parse the JSONL plan output to find the change_summary message.
+            let summary = '';
+            let emoji = '❓';
+            const jsonlPath = path.join(wd, 'plan.jsonl');
+            const planJson = fs.existsSync(jsonlPath) ? fs.readFileSync(jsonlPath, 'utf8') : '';
+            for (const line of planJson.split('\n')) {
+              if (!line.trim()) continue;
+              try {
+                const msg = JSON.parse(line);
+                if (msg.type === 'change_summary') {
+                  const { add = 0, change = 0, remove = 0 } = msg.changes;
+                  summary = msg['@message'];
+                  emoji = remove > 0 ? '🔴' : change > 0 ? '🟡' : add > 0 ? '🟢' : '⚪';
+                  break;
+                }
+              } catch {}
+            }
+            if (!summary) summary = 'Plan summary unavailable';
+
+            const txtPath = path.join(wd, 'plan.txt');
+            const planText = fs.existsSync(txtPath) ? fs.readFileSync(txtPath, 'utf8') : '';
+            const planDisplay = planText.length > 65000
+              ? planText.substring(0, 65000) + '\n...(truncated, see job logs for full output)'
+              : planText;
+            const body = [
+              marker,
+              `| Format | Validate | Plan |`,
+              `|---|---|---|`,
+              `| \`${{ steps.fmt.outcome }}\` | \`${{ steps.validate.outcome }}\` | \`${{ steps.plan.outcome }}\` |`,
+              '',
+              `${emoji} ${summary}`,
+              '',
+              '<details><summary>Plan output</summary>',
+              '',
+              '```hcl',
+              planDisplay,
+              '```',
+              '</details>',
+            ].join('\n');
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.data.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail on plan error
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+      - name: Apply
+        if: >-
+          steps.plan.outcome == 'success' && (
+            (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+            (github.event_name == 'workflow_dispatch' && inputs.operation == 'apply')
+          )
+        working-directory: ${{ inputs.working-directory }}
+        run: terraform apply -auto-approve tfplan

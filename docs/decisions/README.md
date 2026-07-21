@@ -5,6 +5,7 @@ Decisions are numbered sequentially and never deleted or renumbered. Each file d
 | # | Title | Status | Summary |
 |---|---|---|---|
 | [001](001-centralised-reusable-workflows.md) | Centralised reusable workflows | Accepted | Extract the fleet's copy-pasted CI into `workflow_call` reusable workflows in this public repo — a Terraform family (plan/apply, drift) and a repo-agnostic Markdown family. Consumers call them and pin a moving `v1` tag; secrets stay with callers; stalwart's bespoke Terraform pipeline is exempt. |
+| [002](002-markdown-validation-tooling.md) | Markdown validation tooling | Accepted | lychee (Rust) for all link + anchor resolution (offline internal PR check + online external sweep); markdownlint-cli2 for style; remark-validate-links the documented fallback if lychee's GitHub-slugger parity ever fails. Rejects markdown-link-check, remark-lint-for-style, and SSG strict modes. |
 
 ## Adding a new ADR
 

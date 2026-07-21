@@ -30,10 +30,15 @@ on:
   workflow_dispatch:
 jobs:
   links:
+    permissions:
+      contents: read
+      issues: write
     uses: flungo/github-workflows/.github/workflows/markdown-links.yml@v1
     secrets:
       LYCHEE_GITHUB_TOKEN: ${{ secrets.LYCHEE_GITHUB_TOKEN }}
 ```
+
+**The `permissions:` block on the calling job is required.** The external sweep upserts a `markdown-links` issue, so the reusable workflow requests `issues: write`; a reusable workflow's own `permissions:` only *caps* the token, so the caller must grant it, or the run fails at startup (`startup_failure`) when the repo's default `GITHUB_TOKEN` is read-only. (`markdown-lint.yml` needs no extra permissions — the default read access is enough.)
 
 ## Per-repo config
 

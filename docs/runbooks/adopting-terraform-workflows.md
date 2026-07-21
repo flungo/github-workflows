@@ -34,6 +34,9 @@ on:
       operation: { description: Operation, required: true, default: plan, type: choice, options: [plan, apply] }
 jobs:
   terraform:
+    permissions:
+      contents: read
+      pull-requests: write
     uses: flungo/github-workflows/.github/workflows/terraform.yml@v1
     with:
       tf-var-name: TF_VAR_github_token
@@ -42,6 +45,8 @@ jobs:
       TF_TOKEN_APP_TERRAFORM_IO: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
       provider_token: ${{ secrets.FLUNGO_GITHUB_TOKEN }}
 ```
+
+**The `permissions:` block on the calling job is required, not optional.** A reusable workflow's own `permissions:` only *caps* the token; the caller grants it. If the repo's default `GITHUB_TOKEN` is read-only (a common hardening default), omitting this makes the run fail at startup (`startup_failure`) because the reusable workflow requests `pull-requests: write` (to upsert the plan comment) — more than the caller granted. `terraform.yml` needs `contents: read` + `pull-requests: write`; `terraform-drift.yml` needs `contents: read` + `issues: write`.
 
 For a directory-per-owner repo, add `working-directory`, and set an owner-scoped `concurrency-group` and `plan-comment-marker` (e.g. `terraform-flungo`, `<!-- terraform-plan-flungo -->`).
 
@@ -59,6 +64,9 @@ on:
       force_run: { description: Run even if paused, type: boolean, default: false }
 jobs:
   drift:
+    permissions:
+      contents: read
+      issues: write
     uses: flungo/github-workflows/.github/workflows/terraform-drift.yml@v1
     with:
       tf-var-name: TF_VAR_grafana_cloud_access_policy_token

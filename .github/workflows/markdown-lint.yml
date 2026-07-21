@@ -1,0 +1,19 @@
+# Reusable Markdown style/structure linting via markdownlint-cli2.
+#
+# Complements markdown-links.yml (which checks link/anchor resolution) — this
+# one does not check cross-file links. Rule configuration lives in the caller
+# repo's .markdownlint-cli2.jsonc.
+name: Markdown lint
+
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    name: markdownlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: '**/*.md'

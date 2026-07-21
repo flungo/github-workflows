@@ -1,0 +1,13 @@
+{
+  // markdownlint-cli2 config for this repo's docs. Starts from defaults; each
+  // override below carries its justification. Repo-specific — regenerate rather
+  // than copy when adopting elsewhere.
+  "config": {
+    // Line length off: tables, long links, and workflow snippets routinely
+    // exceed any sensible column limit, and prose is not hard-wrapped.
+    "MD013": false,
+    // Allow repeated subsection headings under different parents (e.g. an ADR's
+    // Context / Decision / Consequences recurring across records).
+    "MD024": { "siblings_only": true }
+  }
+}

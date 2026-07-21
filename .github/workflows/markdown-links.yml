@@ -1,0 +1,102 @@
+# Reusable Markdown link validation, in two jobs gated on the caller's event:
+#   internal — offline check of relative links + heading anchors. Blocking, on
+#     every PR and push; deterministic, no network.
+#   external — online sweep of external URLs. Meant for schedule/dispatch (never
+#     a PR, so a flaky outage can't block a merge); reports via a single
+#     auto-updated GitHub issue instead of failing.
+#
+# The caller owns the triggers (pull_request / push / schedule / workflow_dispatch)
+# and path filters; these jobs select themselves from github.event_name. The
+# caller keeps its own .lycheeignore (regenerate per-repo, don't copy).
+name: Markdown links
+
+on:
+  workflow_call:
+    secrets:
+      LYCHEE_GITHUB_TOKEN:
+        description: Namespaced PAT for the external sweep to reach other private repos. Required for the external job.
+        required: false
+
+jobs:
+  internal:
+    name: Internal links & anchors
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: lychee (offline)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # --offline: only local files, no network requests.
+          # --include-fragments: also validate #heading anchors, not just paths.
+          args: --offline --include-fragments --no-progress '**/*.md'
+          fail: true
+
+  external:
+    name: External URLs
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: lychee (online)
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # No --offline: checks external URLs (and re-checks internal links +
+          # anchors). .lycheeignore (repo root) whitelists URLs that legitimately
+          # 403/404 while unauthenticated.
+          args: --include-fragments --no-progress '**/*.md'
+          fail: false          # report via issue; don't red-X the scheduled run
+          output: ./lychee/out.md
+          # Pass the namespaced PAT via the action's `token` INPUT, not a
+          # step-level `env: GITHUB_TOKEN`: the action exports GITHUB_TOKEN from
+          # INPUT_TOKEN (defaulting to the automatic repo-scoped github.token),
+          # and that export clobbers any env we set — so an env-var token
+          # silently loses to the default and can't reach other private repos.
+          token: ${{ secrets.LYCHEE_GITHUB_TOKEN }}
+      - name: Upsert / close the broken-links issue
+        uses: actions/github-script@v7
+        env:
+          LYCHEE_EXIT: ${{ steps.lychee.outputs.exit_code }}
+        with:
+          # Idempotent: at most one open issue labelled `markdown-links`.
+          # Broken links -> update it if present, else create it. Clean run ->
+          # close it if present.
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const label = 'markdown-links';
+            const marker = '<!-- markdown-links-report -->';
+            const title = 'Broken external links (daily Markdown sweep)';
+
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label, per_page: 100,
+            });
+            const existing = openIssues.find(i => (i.body || '').includes(marker));
+
+            if (process.env.LYCHEE_EXIT !== '0') {
+              let report = '';
+              try { report = fs.readFileSync('./lychee/out.md', 'utf8').trim(); } catch (e) {}
+              const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+              const body = [
+                marker,
+                `Broken external links found by the daily sweep ([run](${runUrl})).`,
+                'Fix the link or its target; whitelist a URL in `.lycheeignore` only if it legitimately 403/404s while unauthenticated.',
+                '',
+                report || '_See the workflow run for details._',
+              ].join('\n');
+              if (existing) {
+                await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+              } else {
+                await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
+              }
+            } else if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: 'All external links resolve — closed by the daily sweep.',
+              });
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+            }

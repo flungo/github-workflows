@@ -143,6 +143,34 @@ correctly qualified.
   for a list, `<Project> ADR [001](…), [006](…), and [009](…)`.
 ````
 
+## Adoption pitfalls and sandbox constraints
+
+Recorded from real adoptions, several from Claude Code Web sessions. Reading these first means going straight to implementing the plan instead of re-discovering them.
+
+**Match the CI tool versions locally, or you chase findings CI never reports.**
+
+- `DavidAnson/markdownlint-cli2-action@v19` pins a specific `markdownlint-cli2` (e.g. 0.17.2 / markdownlint 0.37.4). A newer `markdownlint-cli2` installed locally carries rules the pinned CI version does **not** have — e.g. `MD060` (table-column-style), which fires on every table and produces dozens of findings CI will never raise. Pin the local tool to the CI version: `npm install markdownlint-cli2@<pinned>`.
+- Find the action's pinned version by reading its manifest at the tag: `https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2-action/<tag>/package.json` (readable via `WebFetch` even for repos outside the session scope).
+- `markdownlint-cli2` only accepts a config file **named** `.markdownlint-cli2.jsonc` (or a `*.markdownlint-cli2.jsonc` prefix); `--config /tmp/arbitrary.json` is rejected. Name any throwaway config accordingly (e.g. `check.markdownlint-cli2.jsonc`).
+- Record the pinned version in the adopting repo's `CLAUDE.md`, so the next agent matches CI on the first run.
+
+**lychee: install via cargo, not the GitHub release, in a locked-down sandbox.**
+
+- lychee has no npm/pip package, and its GitHub release tarballs are blocked by a locked-down egress proxy, so the "download the binary" path fails. `cargo install lychee --locked` works (the crates index is reachable) but **compiles for a few minutes** — kick it off in the background at the start of the session.
+- The workflow uses `lycheeverse/lychee-action@v2`, which bundles its own lychee, so exact local parity matters less than for markdownlint. The local binary's value is proving the offline check (and anchor-slug parity) **before** pushing: run `lychee --offline --include-fragments --no-progress '**/*.md'` and confirm it flags a deliberately broken `#anchor` and a missing file.
+
+**Claude Code Web egress constraints.**
+
+- Package registries (npm, PyPI, the crates index) are allow-listed, so `npm` / `pip` / `cargo` work — but point each tool at the proxy CA bundle or TLS verification fails: `NODE_EXTRA_CA_CERTS`, `PIP_CERT`, and `CARGO_HTTP_CAINFO` all set to `/root/.ccr/ca-bundle.crt`.
+- `github.com` release/download URLs for repos outside the session's scope are blocked (the proxy returns an "access not enabled" body instead of the file) — read public files via `raw.githubusercontent.com` through `WebFetch` instead.
+- `api.github.com` returns 403 through the proxy; use the GitHub MCP tools for PRs, issues, runs, and dispatch.
+- The harness blocks `sleep`; wait on a backgrounded command or a Monitor loop.
+
+**Verify the external sweep pre-merge via `workflow_dispatch` — but provision the token first.**
+
+- `workflow_dispatch` can be triggered against the **feature branch** before the workflow is on the default branch — GitHub accepts a dispatch with an explicit `ref` (GitHub MCP `actions_run_trigger`, `method: run_workflow`, `workflow_id: markdown-links.yml`, `ref: <branch>`). This exercises the external job and the auto-issue **create** path straight from the PR. (A `workflow_dispatch`-only workflow that has never run is not indexed and 404s on dispatch; the markdown-links caller's `pull_request` trigger indexes it, so this works.)
+- **Pitfall — a tokenless dispatch floods the issue with false 404s.** Dispatch before `LYCHEE_GITHUB_TOKEN` exists and the action falls back to the repo-scoped `github.token`, which **cannot read other private repos** — so every cross-repo link into a private repo returns `404` and lands in the auto-issue. Those are token artifacts, **not** dead links: do **not** copy them into `.lycheeignore`. Provision the token, re-dispatch, and only then curate `.lycheeignore` from what genuinely remains (typically a few real bot-blocked 403s). This is the concrete reason `.lycheeignore` must be regenerated per repo from a **token-enabled** run.
+
 ## Starter prompt for a fresh session
 
 To onboard a repo, start a Claude Code session with that repo (and, if the workflows have moved on, this one as read-only reference), then:

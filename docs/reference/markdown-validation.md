@@ -55,4 +55,4 @@ The external sweep needs a token to resolve links to **all repositories the user
 
 ## Versioning
 
-Pin `@v1`; the tag moves forward for fixes. See [`adopting-markdown-workflows.md`](../runbooks/adopting-markdown-workflows.md) for the callers and the full adoption procedure.
+Pin `@v1` — a moving **branch**, not a tag ([ADR-003](../decisions/003-version-via-moving-v1-branch.md)); it advances automatically on every merge to `main` (see [`releasing.md`](../runbooks/releasing.md)). See [`adopting-markdown-workflows.md`](../runbooks/adopting-markdown-workflows.md) for the callers and the full adoption procedure.

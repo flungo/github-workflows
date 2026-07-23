@@ -1,0 +1,82 @@
+# Advance the current major release branch to main after every merge.
+#
+# Consumers pin `@vN` (a moving branch — see ADR-003). This workflow keeps that
+# branch tracking main: on every push to main it fast-forwards the branch named
+# by MAJOR_BRANCH to the merged commit. The fast-forward is the whole release —
+# the review gate already happened on the PR into main.
+#
+# Major bumps are a human, in-diff decision: a BREAKING change to a reusable
+# workflow's input/secret contract must edit MAJOR_BRANCH below (e.g. v1 -> v2)
+# in the same PR. When that merges, this workflow sees the new name, creates it
+# at main, and the previous major branch is simply never advanced again — so
+# `@v<old>` consumers freeze on their last compatible commit until they migrate.
+# See docs/runbooks/releasing.md.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Preview the decision without moving any branch.
+        type: boolean
+        default: true
+
+permissions:
+  contents: write        # fast-forward / create the major release branch
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # The current major release branch consumers pin as `@<this>`. Advancing it is
+  # automatic; bumping it (v1 -> v2 -> …) in a breaking PR is the only manual,
+  # reviewed step and the sole trigger for cutting a new major.
+  MAJOR_BRANCH: v1
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # need main's full history to prove fast-forwards
+      - name: Advance ${{ env.MAJOR_BRANCH }} to main
+        env:
+          # Real advance on a merge; safe preview by default on manual dispatch.
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+          major="$MAJOR_BRANCH"
+          case "$major" in
+            v[0-9]*) : ;;
+            *) echo "::error::MAJOR_BRANCH ('$major') must look like vN."; exit 1 ;;
+          esac
+
+          main_sha="$(git rev-parse HEAD)"
+          remote_sha="$(git ls-remote origin "refs/heads/$major" | cut -f1)"
+
+          if [ -z "$remote_sha" ]; then
+            plan="create $major at ${main_sha:0:7}"
+          elif [ "$remote_sha" = "$main_sha" ]; then
+            echo "::notice::$major is already at main (${main_sha:0:7}); nothing to release."
+            exit 0
+          else
+            git fetch --no-tags --quiet origin "$major"
+            if git merge-base --is-ancestor "$remote_sha" "$main_sha"; then
+              plan="fast-forward $major ${remote_sha:0:7} -> ${main_sha:0:7}"
+            else
+              echo "::error::$major (${remote_sha:0:7}) is not an ancestor of main — refusing to move it. A breaking change may have landed without bumping MAJOR_BRANCH; see docs/runbooks/releasing.md."
+              exit 1
+            fi
+          fi
+
+          echo "Plan: $plan"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::[dry-run] would $plan"
+            exit 0
+          fi
+          git push origin "$main_sha:refs/heads/$major"
+          echo "::notice::Released: $plan"

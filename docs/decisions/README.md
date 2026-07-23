@@ -4,8 +4,9 @@ Decisions are numbered sequentially and never deleted or renumbered. Each file d
 
 | # | Title | Status | Summary |
 |---|---|---|---|
-| [001](001-centralised-reusable-workflows.md) | Centralised reusable workflows | Accepted | Extract the fleet's copy-pasted CI into `workflow_call` reusable workflows in this public repo — a Terraform family (plan/apply, drift) and a repo-agnostic Markdown family. Consumers call them and pin a moving `v1` tag; secrets stay with callers; stalwart's bespoke Terraform pipeline is exempt. |
+| [001](001-centralised-reusable-workflows.md) | Centralised reusable workflows | Accepted (versioning revised by ADR-003) | Extract the fleet's copy-pasted CI into `workflow_call` reusable workflows in this public repo — a Terraform family (plan/apply, drift) and a repo-agnostic Markdown family. Consumers call them and pin the moving `v1` ref; secrets stay with callers; stalwart's bespoke Terraform pipeline is exempt. |
 | [002](002-markdown-validation-tooling.md) | Markdown validation tooling | Accepted | lychee (Rust) for all link + anchor resolution (offline internal PR check + online external sweep); markdownlint-cli2 for style; remark-validate-links the documented fallback if lychee's GitHub-slugger parity ever fails. Rejects markdown-link-check, remark-lint-for-style, and SSG strict modes. |
+| [003](003-version-via-moving-v1-branch.md) | Version via a moving major branch, advanced automatically | Accepted | Version the reusable workflows with a moving major **branch** rather than a `v1` tag: consumers still pin `@v1`, but `release.yml` fast-forwards it to `main` on every merge; a breaking change cuts the next major by bumping `MAJOR_BRANCH` in that workflow (freezing the old major). Revises ADR-001's tag mechanism. |
 
 ## Adding a new ADR
 

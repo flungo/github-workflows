@@ -40,4 +40,4 @@ Sessions use the GitHub MCP — there is no `gh` CLI. Trigger on-demand runs wit
 
 ## Adoption & versioning
 
-Consumers call each workflow with `uses: flungo/github-workflows/.github/workflows/<name>@v1` and pass their inputs/secrets — see [`adopting-terraform-workflows.md`](../runbooks/adopting-terraform-workflows.md). The `v1` tag moves forward for fixes; breaking input/secret changes get a new major tag. Anything repo-specific — `*.tf`, the `terraform.tf` version pins, and the secrets themselves — stays in the consumer.
+Consumers call each workflow with `uses: flungo/github-workflows/.github/workflows/<name>@v1` and pass their inputs/secrets — see [`adopting-terraform-workflows.md`](../runbooks/adopting-terraform-workflows.md). `@v1` is a moving **branch**, not a tag ([ADR-003](../decisions/003-version-via-moving-v1-branch.md)): it advances automatically on every merge to `main`, and a breaking input/secret change cuts a new major branch (`v2`) — see [`releasing.md`](../runbooks/releasing.md). Anything repo-specific — `*.tf`, the `terraform.tf` version pins, and the secrets themselves — stays in the consumer.

@@ -1,6 +1,6 @@
 # github-workflows
 
-Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of each repo copy-pasting (and silently drifting) its CI, repos call these reusable workflows and pin a tag. Fix or improve a workflow once here, then bump the tag in the consumers.
+Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of each repo copy-pasting (and silently drifting) its CI, repos call these reusable workflows and pin the moving `@v1` branch. Fix or improve a workflow once here; merging to `main` advances `v1` automatically and every consumer follows.
 
 Two families:
 
@@ -18,7 +18,7 @@ Two families:
 
 ## Using them
 
-A consumer repo calls a workflow and passes its own inputs and secrets. Pin to the moving major tag (`@v1`):
+A consumer repo calls a workflow and passes its own inputs and secrets. Pin to the moving major branch (`@v1`):
 
 ```yaml
 jobs:
@@ -38,4 +38,4 @@ See the adopting runbooks for every workflow's inputs, secrets, and a copy-paste
 
 ## Versioning
 
-Consumers pin `@v1`; the `v1` tag moves forward as fixes land here. Breaking changes get a new major tag. This repo's own workflows and docs are validated on every PR by [`ci.yml`](.github/workflows/ci.yml) (actionlint plus the repo's own Markdown workflows).
+Consumers pin `@v1` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)). Every merge to `main` runs [`release.yml`](.github/workflows/release.yml), which fast-forwards `v1` to `main`, so consumers following `@v1` pick fixes up automatically. A breaking change cuts a new major branch (`v2`) by bumping `MAJOR_BRANCH` in that workflow — see [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md). This repo's own workflows and docs are validated on every PR by [`ci.yml`](.github/workflows/ci.yml) (actionlint plus the repo's own Markdown workflows).

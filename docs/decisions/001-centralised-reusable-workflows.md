@@ -3,6 +3,11 @@
 Date: 2026-07-21
 Status: Accepted
 
+> **Revised by [ADR-003](003-version-via-moving-v1-branch.md):** the versioning
+> mechanism below (a moving `v1` **tag**) is superseded by a moving `v1`
+> **branch**. Consumers still pin `@v1`; only how the ref advances changed. The
+> rest of this ADR stands.
+
 ## Context
 
 Several `flungo` repositories ran near-identical GitHub Actions CI. The Terraform repos (`terraform-grafana-cloud`, `terraform-github`, `stalwart.flungo.net`, with `terraform-cloudflare` and `authentik.flungo.net` to follow) each had a plan-on-PR / apply-on-merge workflow, and one had a daily drift-remediation workflow; the implementations were copied by hand and had begun to drift (`terraform-github`'s was explicitly "adapted from `terraform-grafana-cloud`"). Separately, `stalwart.flungo.net` maintained repo-agnostic Markdown-validation workflows — applicable to *any* repo with docs, not just Terraform ones — whose stated end state was "a shared reusable workflow or template repo". A fix had to be re-applied by hand in each repo, with nothing keeping them in sync.

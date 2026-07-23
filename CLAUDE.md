@@ -1,6 +1,6 @@
 # CLAUDE.md — github-workflows
 
-Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of copy-pasting CI, each repo calls these workflows via `workflow_call` and pins a tag. Two families:
+Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of copy-pasting CI, each repo calls these workflows via `workflow_call` and pins the moving `@v1` branch. Two families:
 
 - **Terraform** (`terraform.yml`, `terraform-drift.yml`) — for the Terraform repos (`terraform-grafana-cloud`, `terraform-github`, `terraform-cloudflare`, …).
 - **Markdown** (`markdown-lint.yml`, `markdown-links.yml`) — repo-agnostic; for any repo with Markdown docs.
@@ -18,8 +18,8 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 ## Conventions
 
 - **The workflows are the product** — they contain no secrets; callers pass every credential. Keep them provider-agnostic (the Terraform provider token is a generic `provider_token` secret named by the caller's `tf-var-name` input). Never hard-code a repo, workspace, or token here.
-- **Pin actions and version this repo.** Consumers pin `@v1`; move the `v1` tag forward for fixes, a new major tag for breaking changes. Any change to inputs/secrets is a change to the contract — update the relevant adopting runbook and the consumers.
-- **Validate before tagging.** `ci.yml` runs actionlint and the repo's own Markdown checks on every PR. A workflow change is not done until CI is green.
+- **Pin actions and version this repo.** Consumers pin `@v1` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)). `release.yml` fast-forwards `v1` to `main` automatically on every merge, so fixes reach consumers with no bump step. A **breaking** input/secret change must bump `MAJOR_BRANCH` in `release.yml` (`v1` → `v2`) in the same PR — that reviewed one-line edit is the whole major-version decision, and it freezes the old major. Never create a `v1` tag (`@v1` would then be ambiguous), and never push a `v*` branch directly — it moves only via `release.yml` or a PR that targets it. See [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md); any change to inputs/secrets is a change to the contract — update the relevant adopting runbook and the consumers.
+- **Validate before it reaches `main`.** `ci.yml` runs actionlint and the repo's own Markdown checks on every PR; the merge that passes them is what advances `v1`. A workflow change is not done until CI is green.
 - **Git & docs conventions** follow the fleet standard (Conventional Commits, linear history, squash-vs-rebase, no fixup commits, PR-only landing) — the same as the consumer repos and Fabrizio's `code-review-workflow` skill. Never commit directly to `main`; work on a feature branch and land via PR.
 
 ## Documentation standards

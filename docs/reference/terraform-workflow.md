@@ -17,6 +17,15 @@ State lives in HCP Terraform (org `flungo`), in **Local execution mode**: HCP pr
 
 The PR plan comment is upserted (found and updated via a hidden marker), so a PR carries a single, current plan rather than a growing stack of comments. `fmt` and `validate` outcomes are surfaced in the comment's table; a `fmt` failure is reported but does not fail the run.
 
+## Plan artifact
+
+Every run publishes the plan as an artifact (named by the `plan-artifact-name` input, default `terraform-plan`), uploaded on success and failure alike with a 1-day retention. It contains:
+
+- `plan.jsonl` — the machine-readable `-json` plan stream, **including the JSON diagnostics from a failed plan** (so a follow-on job can read *why* a plan failed);
+- `plan.txt` — the human-readable plan, present only when the plan succeeded.
+
+This is the **extension seam** for callers that need to act on the plan. A caller job that `uses:` a reusable workflow can't add steps to it, so post-plan behaviour lives in a *separate* job (`needs:` the caller's Terraform job, gated on its `result`) that downloads this artifact and inspects `plan.jsonl` — no re-running the plan, and this workflow stays the single source of the plan sequence. See [`adopting-terraform-workflows.md`](../runbooks/adopting-terraform-workflows.md) for the caller pattern.
+
 ## Secret model
 
 - All credentials are **GitHub Actions secrets**, never HCP workspace variables.

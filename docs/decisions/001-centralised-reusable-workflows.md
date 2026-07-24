@@ -38,6 +38,6 @@ Details:
 
 **Negative / trade-offs:**
 
-- A tag bump in each consumer is still required to pick up changes; pairing this with Renovate/Dependabot is a follow-up so the bumps don't themselves silently lag.
+- A tag bump in each consumer is still required to pick up changes; pairing this with Renovate/Dependabot is a follow-up so the bumps don't themselves silently lag. (Both parts are since superseded: the moving branch of [ADR-003](003-version-via-moving-v1-branch.md) removes the routine bump, and [ADR-004](004-version-check-opt-in.md) replaces the dependency-bot follow-up with an opt-in version check.)
 - Reusable-workflow constraints (secrets must be declared; some contexts are restricted) make the shared files more abstract than the inline originals.
 - Two-hop indirection (caller → reusable workflow) is marginally harder to read than a single inline workflow.

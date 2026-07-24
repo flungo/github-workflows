@@ -1,0 +1,116 @@
+# Reusable "am I on a frozen major?" check — opt-in, per-consumer.
+#
+# A consumer calls this on a schedule. It compares the flungo/github-workflows
+# major(s) the consumer pins (read from the consumer's own workflow files)
+# against the latest major published here, and — when the consumer is pinning a
+# now-frozen major — opens (and later closes) a single tracking issue in the
+# CONSUMER's own repo. See docs/runbooks/releasing.md and the adoption runbooks.
+#
+# No credentials: it reads this (public) repo's v* branches with the caller's
+# own repo-scoped GITHUB_TOKEN (public repo, so plain read works) and writes the
+# issue in the caller's repo. The caller must grant `issues: write` (a reusable
+# workflow's permissions only cap the token — see the adoption runbooks).
+name: Version check
+
+on:
+  workflow_call:
+    inputs:
+      producer:
+        description: The owner/repo whose major branch the caller pins.
+        type: string
+        default: flungo/github-workflows
+        required: false
+
+jobs:
+  version-check:
+    name: Version check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare pinned major against the latest published
+        uses: actions/github-script@v7
+        env:
+          PRODUCER: ${{ inputs.producer }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const [pOwner, pRepo] = (process.env.PRODUCER || 'flungo/github-workflows').split('/');
+            const { owner, repo } = context.repo;
+            const label = 'github-workflows-version';
+            const marker = '<!-- github-workflows-version-check -->';
+
+            // 1. Majors this repo pins, read from its own workflow files. Only
+            //    bare `@vN` refs are majors we track; SHA/branch/tag pins are skipped.
+            const dir = '.github/workflows';
+            const refRe = new RegExp(`${pOwner}/${pRepo}/[^@\\s'"]+@([^\\s'"]+)`, 'g');
+            const pinned = new Map(); // major:int -> Set<file>
+            let files = [];
+            try { files = fs.readdirSync(dir).filter(f => /\.ya?ml$/.test(f)); } catch (e) {}
+            for (const f of files) {
+              const text = fs.readFileSync(path.join(dir, f), 'utf8');
+              for (const m of text.matchAll(refRe)) {
+                const mm = /^v(\d+)$/.exec(m[1]);
+                if (!mm) continue;
+                const major = parseInt(mm[1], 10);
+                if (!pinned.has(major)) pinned.set(major, new Set());
+                pinned.get(major).add(f);
+              }
+            }
+
+            // 2. Latest major published by the producer (highest v<N> branch).
+            const branches = await github.paginate(github.rest.repos.listBranches, {
+              owner: pOwner, repo: pRepo, per_page: 100,
+            });
+            const majors = branches
+              .map(b => /^v(\d+)$/.exec(b.name)).filter(Boolean).map(x => parseInt(x[1], 10));
+            if (majors.length === 0) {
+              core.setFailed(`No v<N> branches found on ${pOwner}/${pRepo}.`);
+              return;
+            }
+            const latest = Math.max(...majors);
+
+            // 3. Any pinned major below the latest is frozen.
+            const stale = [...pinned.entries()].filter(([maj]) => maj < latest).sort();
+
+            // 4. Upsert / close one tracking issue in the caller's repo.
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: label, per_page: 100,
+            });
+            const existing = open.find(i => (i.body || '').includes(marker));
+
+            if (stale.length > 0) {
+              const lines = stale.map(([maj, set]) =>
+                `- \`@v${maj}\` (frozen) in ${[...set].sort().map(f => `\`${f}\``).join(', ')} → migrate to \`@v${latest}\``);
+              const body = [
+                marker,
+                `\`${pOwner}/${pRepo}\` has published **v${latest}**, but this repo still pins an older, now-frozen major:`,
+                '',
+                ...lines,
+                '',
+                `A frozen major receives no further updates. Bump the caller \`uses: …@vN\` refs to \`@v${latest}\` once you've accommodated the breaking change — see ${pOwner}/${pRepo} \`docs/runbooks/releasing.md\`.`,
+                '',
+                '_Raised by the opt-in `version-check` workflow; it closes this issue automatically once every ref is on the latest major._',
+              ].join('\n');
+              const title = `Pinned ${pRepo} major is frozen — v${latest} available`;
+              if (existing) {
+                await github.rest.issues.update({ owner, repo, issue_number: existing.number, title, body });
+                core.notice(`Updated migration issue #${existing.number}.`);
+              } else {
+                const { data } = await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
+                core.notice(`Opened migration issue #${data.number}.`);
+              }
+            } else if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: `All \`${pOwner}/${pRepo}\` refs are on the latest major (v${latest}) — closing.`,
+              });
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+              core.info(`Closed migration issue #${existing.number}.`);
+            } else {
+              core.info(`Up to date: all pins on the latest major (v${latest}).`);
+            }

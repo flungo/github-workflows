@@ -81,3 +81,23 @@ jobs:
 - **`terraform-grafana-cloud`** — calls `terraform.yml` and `terraform-drift.yml`; `tf-var-name: TF_VAR_grafana_cloud_access_policy_token`.
 - **`terraform-github`** — calls `terraform.yml` with `working-directory: owners/flungo`, `concurrency-group: terraform-flungo`, `plan-comment-marker: <!-- terraform-plan-flungo -->`, `tf-var-name: TF_VAR_github_token`. No drift workflow.
 - **`stalwart.flungo.net`** — does **not** use these; its Terraform pipeline is bespoke (ephemeral-container tests, a LAN apply; see [ADR-001](../decisions/001-centralised-reusable-workflows.md)). It adopts only the Markdown workflows.
+
+## Version check (opt-in)
+
+Optionally, have this repo raise its own issue when it is left pinning a now-frozen major (after a new major is cut here — see [`releasing.md` § Tracking consumer migration](releasing.md#tracking-consumer-migration) and [ADR-004](../decisions/004-version-check-opt-in.md)). Add one scheduled caller; the check writes the issue in *this* repo with the default token, so no extra secret is needed:
+
+```yaml
+name: Version check
+on:
+  schedule:
+    - cron: '0 7 * * 1'   # weekly
+  workflow_dispatch:
+jobs:
+  version-check:
+    permissions:
+      contents: read
+      issues: write
+    uses: flungo/github-workflows/.github/workflows/version-check.yml@v1
+```
+
+**The `permissions:` block is required** — the check upserts an issue in this repo, so the caller must grant `issues: write` (a reusable workflow's `permissions:` only cap the token).

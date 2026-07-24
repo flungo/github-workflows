@@ -48,6 +48,26 @@ Both files are **repo-specific — regenerate them, don't copy another repo's**:
 - **`.lycheeignore`** — URLs that legitimately 403/404 while unauthenticated. Seed it with an explanatory header and populate it from that repo's own first `workflow_dispatch` run — never copy another repo's entries.
 - **`LYCHEE_GITHUB_TOKEN`** secret — a namespaced PAT (an account/org secret is ideal). Provisioning and the `token:`-input-not-`env` gotcha are in [`markdown-validation.md § LYCHEE_GITHUB_TOKEN provisioning`](../reference/markdown-validation.md#lychee_github_token-provisioning).
 
+## Version check (opt-in)
+
+Optionally, have this repo raise its own issue when it is left pinning a now-frozen major (after a new major is cut in `github-workflows` — see [`releasing.md` § Tracking consumer migration](releasing.md#tracking-consumer-migration) and [ADR-004](../decisions/004-version-check-opt-in.md)). Add one scheduled caller; the check writes the issue in *this* repo with the default token, so no extra secret is needed:
+
+```yaml
+name: Version check
+on:
+  schedule:
+    - cron: '0 7 * * 1'   # weekly
+  workflow_dispatch:
+jobs:
+  version-check:
+    permissions:
+      contents: read
+      issues: write
+    uses: flungo/github-workflows/.github/workflows/version-check.yml@v1
+```
+
+**The `permissions:` block is required** — the check upserts an issue in this repo, so the caller must grant `issues: write` (a reusable workflow's `permissions:` only cap the token).
+
 ## Adoption procedure — check-then-fix commit structure
 
 The rule that matters more than the PR boundary is the **commit** boundary. For each check you introduce:

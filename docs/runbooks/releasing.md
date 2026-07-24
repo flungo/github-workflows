@@ -24,7 +24,7 @@ In the **same PR** as the breaking change:
 
 On merge, `release.yml` sees the new name, **creates `v2` at `main`**, and never touches `v1` again — so `@v1` consumers **freeze** on their last compatible commit. That one-line edit, visible in the PR diff, is the whole "this is a major" decision; there is nothing else to parse or label.
 
-Then, on each consumer, migrate `@v1` → `@v2` when you're ready and have accommodated the breaking change. Consumers move deliberately — nothing is pushed onto them.
+Then, on each consumer, migrate `@v1` → `@v2` when you're ready and have accommodated the breaking change. Consumers move deliberately — nothing is pushed onto them. Opted-in consumers raise their own migration reminder — see [Tracking consumer migration](#tracking-consumer-migration).
 
 ## A breaking change you didn't foresee
 
@@ -38,6 +38,12 @@ When an incompatibility is noticed only *after* it merged — `release.yml` has 
 ## Patching a frozen major
 
 Once a newer major exists, `release.yml` no longer advances the older one. To fix a bug on a frozen `v1`, open a PR **targeting `v1`** (base `v1`) with the patch — written directly or cherry-picked from `main`. It merges straight onto `v1`; nothing auto-advances it.
+
+## Tracking consumer migration
+
+Nothing forces a consumer off a frozen major, so a repo can silently lag on `@v<old>` after a new major is cut. To surface that, consumers **opt in** to the reusable [`version-check.yml`](../../.github/workflows/version-check.yml): on a schedule it compares the majors that consumer pins against the latest published here, and opens — then auto-closes — a tracking issue **in that consumer's own repo** when it's on a frozen major. It needs no credential (the consumer reads this public repo's majors and writes the issue with its own token). See the opt-in caller in the adoption runbooks ([Terraform](adopting-terraform-workflows.md#version-check-opt-in), [Markdown](adopting-markdown-workflows.md#version-check-opt-in)) and [ADR-004](../decisions/004-version-check-opt-in.md).
+
+A single producer-side rollup of *every* consumer's state is intentionally **not** built — it would need a broad cross-owner credential — and is left as a possible future addition.
 
 ## Testing the decision without moving anything
 

@@ -10,7 +10,7 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 - `.github/workflows/*.yml` — the reusable workflows and this repo's own self-CI (`ci.yml`).
 - `docs/` follows the [Divio/Diátaxis](https://diataxis.fr/) split, matching the sibling repos — each subdirectory has a `README.md` index:
   - `reference/` — information-oriented lookup: `terraform-workflow.md` (the Terraform CI standard) and `markdown-validation.md` (the Markdown workflows, for any repo).
-  - `runbooks/` — repeatable how-to guides: `adopting-terraform-workflows.md`, `adopting-markdown-workflows.md`.
+  - `runbooks/` — repeatable how-to guides: `adopting-terraform-workflows.md`, `adopting-markdown-workflows.md`, `adopting-version-check.md`, `releasing.md`.
   - `decisions/` — ADRs, numbered sequentially and never renumbered.
   - `plans/` — one-time procedures, tracked to completion then retired.
 - `scripts/` — helper scripts referenced by the runbooks (e.g. `reflow.py`, the render-gated semantic-line-break reflow used when adopting the Markdown workflows).
@@ -19,6 +19,7 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 
 - **The workflows are the product** — they contain no secrets; callers pass every credential. Keep them provider-agnostic (the Terraform provider token is a generic `provider_token` secret named by the caller's `tf-var-name` input). Never hard-code a repo, workspace, or token here.
 - **Pin actions and version this repo.** Consumers pin `@v1` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)). `release.yml` fast-forwards `v1` to `main` automatically on every merge, so fixes reach consumers with no bump step. A **breaking** input/secret change must bump `MAJOR_BRANCH` in `release.yml` (`v1` → `v2`) in the same PR — that reviewed one-line edit is the whole major-version decision, and it freezes the old major. Never create a `v1` tag (`@v1` would then be ambiguous), and never push a `v*` branch directly — it moves only via `release.yml` or a PR that targets it. See [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md); any change to inputs/secrets is a change to the contract — update the relevant adopting runbook and the consumers.
+- **Every consumer adopts the version check.** Onboarding any consumer includes the opt-in [`version-check` caller](docs/runbooks/adopting-version-check.md) — a one-line, credential-free workflow that flags the repo if a future major bump leaves it on a frozen `@vN`. Add it to every consumer we create, and to existing ones.
 - **Validate before it reaches `main`.** `ci.yml` runs actionlint and the repo's own Markdown checks on every PR; the merge that passes them is what advances `v1`. A workflow change is not done until CI is green.
 - **Git & docs conventions** follow the fleet standard (Conventional Commits, linear history, squash-vs-rebase, no fixup commits, PR-only landing) — the same as the consumer repos and Fabrizio's `code-review-workflow` skill. Never commit directly to `main`; work on a feature branch and land via PR.
 

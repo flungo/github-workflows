@@ -1,5 +1,5 @@
 # Self-CI for this repository: lint the reusable workflows with actionlint, and
-# dogfood the repo's own reusable Markdown workflows against its docs.
+# dogfood the repo's own reusable Markdown and version-check workflows.
 name: CI
 
 on:
@@ -38,3 +38,13 @@ jobs:
       issues: write
     secrets:
       LYCHEE_GITHUB_TOKEN: ${{ secrets.LYCHEE_GITHUB_TOKEN }}
+
+  version-check:
+    # Dogfood / smoke test: prove version-check.yml is a valid, runnable reusable
+    # workflow. This repo pins no flungo/github-workflows @vN of itself, so it
+    # no-ops (nothing to migrate) — the run just exercises checkout + the script.
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    uses: ./.github/workflows/version-check.yml
+    permissions:
+      contents: read
+      issues: write

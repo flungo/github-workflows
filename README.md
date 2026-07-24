@@ -15,6 +15,7 @@ Two families:
 | [`terraform-drift.yml`](.github/workflows/terraform-drift.yml) | Daily drift remediation with GitHub-issue notifications (opt-in; for repos with auto-rotating credentials) |
 | [`markdown-lint.yml`](.github/workflows/markdown-lint.yml) | `markdownlint-cli2` style/structure check |
 | [`markdown-links.yml`](.github/workflows/markdown-links.yml) | lychee internal link/anchor check (blocking) + daily external-URL sweep that reports via an issue |
+| [`version-check.yml`](.github/workflows/version-check.yml) | Opt-in: a consumer checks whether it pins a now-frozen major and opens/closes a migration issue in its own repo (no credential) |
 
 ## Using them
 

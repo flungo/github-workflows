@@ -32,6 +32,10 @@ on:
         description: Hidden marker used to find and update this repo's plan comment.
         type: string
         default: '<!-- terraform-plan -->'
+      plan-artifact-name:
+        description: Name the plan (plan.jsonl, plan.txt) is uploaded under, so a caller's follow-on jobs can consume it.
+        type: string
+        default: terraform-plan
       tf-var-name:
         description: Env var name for the provider token, e.g. TF_VAR_github_token. Empty = no provider token.
         type: string
@@ -107,6 +111,21 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         run: terraform show -no-color tfplan > plan.txt
         continue-on-error: true
+
+      # Publish the plan as an artifact so a caller's follow-on jobs can consume it
+      # (e.g. surface diagnostics from a failed plan without re-running it). Uploaded
+      # on success and failure alike — plan.jsonl carries the JSON diagnostics even
+      # when the plan errored; plan.txt is absent on failure, hence if-no-files-found.
+      - name: Upload plan artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.plan-artifact-name }}
+          path: |
+            ${{ inputs.working-directory }}/plan.jsonl
+            ${{ inputs.working-directory }}/plan.txt
+          retention-days: 1
+          if-no-files-found: ignore
 
       - name: Post plan to PR
         if: github.event_name == 'pull_request'

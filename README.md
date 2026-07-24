@@ -15,6 +15,7 @@ Two families:
 | [`terraform-drift.yml`](.github/workflows/terraform-drift.yml) | Daily drift remediation with GitHub-issue notifications (opt-in; for repos with auto-rotating credentials) |
 | [`markdown-lint.yml`](.github/workflows/markdown-lint.yml) | `markdownlint-cli2` style/structure check |
 | [`markdown-links.yml`](.github/workflows/markdown-links.yml) | lychee internal link/anchor check (blocking) + daily external-URL sweep that reports via an issue |
+| [`version-check.yml`](.github/workflows/version-check.yml) | Opt-in: a consumer checks whether it pins a now-frozen major and opens/closes a migration issue in its own repo (no credential) |
 
 ## Using them
 
@@ -29,6 +30,8 @@ jobs:
 ```
 
 See the adopting runbooks for every workflow's inputs, secrets, and a copy-paste caller: [Terraform](docs/runbooks/adopting-terraform-workflows.md), [Markdown](docs/runbooks/adopting-markdown-workflows.md).
+
+**Every consumer should also adopt the [version check](docs/runbooks/adopting-version-check.md)** — a one-line, credential-free opt-in workflow that raises an issue in the consumer's own repo if a future major bump ever leaves it pinning a frozen `@vN`. Recommended for every repo that pins these workflows.
 
 ## Standards & rationale
 

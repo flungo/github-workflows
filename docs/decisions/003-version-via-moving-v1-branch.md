@@ -50,4 +50,4 @@ Done by the maintainer with push access; ordered so `@v1` never fails to resolve
 - A frozen major (`v1` after `v2` is cut) receives no automatic fixes — reverts and backports to it are manual PRs (base `vN`) and expected to be rare.
 - Letting `release.yml` fast-forward a protection-ruled `v*` requires a bypass identity the default `GITHUB_TOKEN` may not provide — a fine-grained PAT or a GitHub App token — which becomes a managed dependency of the release automation.
 - Renaming/deleting the current major branch, or reintroducing a `vN` tag, breaks resolution; recorded here and in `CLAUDE.md` as hard "never"s.
-- Making the consumer moves visible (so they don't silently lag) still wants Renovate/Dependabot — the follow-up carried over from ADR-001.
+- Surfacing a consumer that lags on a frozen major is handled by an opt-in per-consumer version check ([ADR-004](004-version-check-opt-in.md)), not a dependency bot; a fleet-wide rollup remains a possible future addition.

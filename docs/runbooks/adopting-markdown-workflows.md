@@ -2,6 +2,8 @@
 
 How any repo with Markdown calls `markdown-lint.yml` and `markdown-links.yml`, and brings its docs and `CLAUDE.md` up to the standard. Pin `@v1`. These are **not** Terraform-specific — most `flungo` repos with a `docs/` tree should adopt them. See [`markdown-validation.md`](../reference/markdown-validation.md) for what they do and [ADR-002](../decisions/002-markdown-validation-tooling.md) for why.
 
+> **Highly recommended:** also adopt the [version check](adopting-version-check.md) — a one-line opt-in caller that raises an issue in this repo if a future major bump ever leaves it pinning a frozen `@vN`. Especially worth it when this is the first `github-workflows` workflow the repo adopts.
+
 ## `markdown-lint.yml`
 
 No inputs or secrets. The caller owns the triggers, path filters, and `.markdownlint-cli2.jsonc`.

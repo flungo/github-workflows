@@ -23,7 +23,7 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: lychee (offline)
         uses: lycheeverse/lychee-action@v2
         with:
@@ -40,7 +40,7 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: lychee (online)
         id: lychee
         uses: lycheeverse/lychee-action@v2
@@ -58,7 +58,7 @@ jobs:
           # silently loses to the default and can't reach other private repos.
           token: ${{ secrets.LYCHEE_GITHUB_TOKEN }}
       - name: Upsert / close the broken-links issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           LYCHEE_EXIT: ${{ steps.lychee.outputs.exit_code }}
         with:

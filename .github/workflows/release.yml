@@ -40,7 +40,7 @@ jobs:
   advance:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0        # need main's full history to prove fast-forwards
       - name: Advance ${{ env.MAJOR_BRANCH }} to main

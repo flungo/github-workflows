@@ -68,7 +68,7 @@ jobs:
     if: needs.terraform.result == 'failure'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: terraform-plan }
       - run: |
           plan="$(find . -name plan.jsonl -print -quit)"   # path depends on working-directory

@@ -61,7 +61,7 @@ jobs:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
       TF_INPUT: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The DRIFT_REMEDIATION_PAUSED repository variable is the quick, unaudited
       # emergency brake (handled by the job-level `if`). A committed .drift-paused
@@ -122,7 +122,7 @@ jobs:
 
       - name: Open drift issue
         if: steps.plan.outputs.exitcode == '2' && steps.plan.outputs.has_destroys != 'true' && steps.apply.outcome == 'success'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           WORKDIR: ${{ inputs.working-directory }}
         with:
@@ -171,7 +171,7 @@ jobs:
 
       - name: Open destroy review issue
         if: steps.plan.outputs.exitcode == '2' && steps.plan.outputs.has_destroys == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           WORKDIR: ${{ inputs.working-directory }}
         with:
@@ -221,7 +221,7 @@ jobs:
 
       - name: Close open drift issues on clean run
         if: steps.plan.outputs.exitcode == '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: issues } = await github.rest.issues.listForRepo({

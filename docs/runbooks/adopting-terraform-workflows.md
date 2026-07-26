@@ -55,7 +55,7 @@ For a directory-per-owner repo, add `working-directory`, and set an owner-scoped
 
 ### Consuming the plan artifact (follow-on jobs)
 
-A job that `uses:` a reusable workflow can't add steps to it, so anything that must run *after* the plan lives in a **separate job** that `needs:` the caller's Terraform job and downloads the plan artifact (default name `terraform-plan` — see [the contract](../reference/terraform-workflow.md#plan-artifact)). Gate it on the Terraform job's `result` (available even on failure), so upstream changes to the plan sequence never ripple into the follow-on job — the artifact is the only contract:
+A job that `uses:` a reusable workflow can't add steps to it, so anything that must run *after* the plan lives in a **separate job** that `needs:` the caller's Terraform job and downloads the plan artifact (default name `terraform-plan` — see [the contract](../reference/terraform-workflow.md#plan-artifact)). Gate it on the Terraform job's `result` — and note the `always() &&`: a job whose `needs` failed is **skipped by default** unless its `if` uses a status function, so a bare `needs.terraform.result == 'failure'` self-skips in exactly the case (a failed plan) it exists to handle. Because the artifact is the only contract, upstream changes to the plan sequence never ripple into the follow-on job:
 
 ```yaml
 jobs:
@@ -65,7 +65,7 @@ jobs:
 
   inspect:
     needs: terraform
-    if: needs.terraform.result == 'failure'
+    if: ${{ always() && needs.terraform.result == 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8

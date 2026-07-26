@@ -93,7 +93,15 @@ jobs:
         env:
           PROVIDER_NAME: ${{ inputs.provider-name }}
         run: |
-          args=(generate)
-          [ -n "$PROVIDER_NAME" ] && args+=(--provider-name "$PROVIDER_NAME")
-          go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs "${args[@]}"
+          # Provider name: the input if given, else derived from the repo name by
+          # stripping the terraform-provider- prefix. The workflow strips it rather
+          # than relying on tfplugindocs' own default, which keeps the full
+          # directory name in every released version (through v0.25.0).
+          if [ -n "$PROVIDER_NAME" ]; then
+            name="$PROVIDER_NAME"
+          else
+            name="${GITHUB_REPOSITORY##*/}"
+            name="${name#terraform-provider-}"
+          fi
+          go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-name "$name"
           git diff --exit-code docs/

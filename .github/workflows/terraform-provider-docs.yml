@@ -48,9 +48,16 @@ jobs:
         env:
           PROVIDER_NAME: ${{ inputs.provider-name }}
         run: |
-          args=(generate)
-          [ -n "$PROVIDER_NAME" ] && args+=(--provider-name "$PROVIDER_NAME")
-          go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs "${args[@]}"
+          # Provider name: the input if given, else derived from the repo name by
+          # stripping the terraform-provider- prefix (see terraform-provider-test.yml
+          # for why the workflow strips it rather than tfplugindocs).
+          if [ -n "$PROVIDER_NAME" ]; then
+            name="$PROVIDER_NAME"
+          else
+            name="${GITHUB_REPOSITORY##*/}"
+            name="${name#terraform-provider-}"
+          fi
+          go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-name "$name"
       - name: Commit generated documentation
         run: |
           # Commit as the GitHub Actions bot. 41898282 is the github-actions[bot]

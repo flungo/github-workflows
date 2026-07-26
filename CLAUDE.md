@@ -1,16 +1,17 @@
 # CLAUDE.md — github-workflows
 
-Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of copy-pasting CI, each repo calls these workflows via `workflow_call` and pins the moving `@v1` branch. Two families:
+Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of copy-pasting CI, each repo calls these workflows via `workflow_call` and pins the moving `@v1` branch. Three families:
 
 - **Terraform** (`terraform.yml`, `terraform-drift.yml`) — for the Terraform repos (`terraform-grafana-cloud`, `terraform-github`, `terraform-cloudflare`, …).
+- **Terraform provider** (`terraform-provider-test.yml`, `terraform-provider-docs.yml`, `terraform-provider-release.yml`) — for the Terraform provider repos (`terraform-provider-stalwart`, …); acceptance tests stay in each consumer as a local `testacc` job ([ADR-006](docs/decisions/006-terraform-provider-ci-family.md)).
 - **Markdown** (`markdown-lint.yml`, `markdown-links.yml`) — repo-agnostic; for any repo with Markdown docs.
 
 ## Repo layout
 
 - `.github/workflows/*.yml` — the reusable workflows and this repo's own self-CI (`ci.yml`).
 - `docs/` follows the [Divio/Diátaxis](https://diataxis.fr/) split, matching the sibling repos — each subdirectory has a `README.md` index:
-  - `reference/` — information-oriented lookup: `terraform-workflow.md` (the Terraform CI standard) and `markdown-validation.md` (the Markdown workflows, for any repo).
-  - `runbooks/` — repeatable how-to guides: `adopting-terraform-workflows.md`, `adopting-markdown-workflows.md`, `adopting-version-check.md`, `releasing.md`.
+  - `reference/` — information-oriented lookup: `terraform-workflow.md` (the Terraform CI standard), `terraform-provider-workflow.md` (the provider CI standard) and `markdown-validation.md` (the Markdown workflows, for any repo).
+  - `runbooks/` — repeatable how-to guides: `adopting-terraform-workflows.md`, `adopting-terraform-provider-workflows.md`, `adopting-markdown-workflows.md`, `adopting-version-check.md`, `releasing.md`.
   - `decisions/` — ADRs, numbered sequentially and never renumbered.
   - `plans/` — one-time procedures, tracked to completion then retired.
 - `scripts/` — helper scripts referenced by the runbooks (e.g. `reflow.py`, the render-gated semantic-line-break reflow used when adopting the Markdown workflows).

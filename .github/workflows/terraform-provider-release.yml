@@ -1,0 +1,117 @@
+# Copyright (c) Fabrizio Lungo
+# SPDX-License-Identifier: MPL-2.0
+#
+# Reusable GoReleaser publish for a Terraform provider. A consumer calls this on
+# push of a v* tag (and optionally workflow_dispatch with a version input) to
+# build and publish signed archives; the Terraform Registry ingests the GitHub
+# release and the OpenTofu Registry polls for it. When the GPG secrets are absent
+# the release is built unsigned (early testing only — neither registry accepts an
+# unsigned release). The caller must grant `contents: write`.
+# See docs/runbooks/adopting-terraform-provider-workflows.md.
+name: Terraform provider release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Tag to release (e.g. v0.1.0). Required on workflow_dispatch; ignored on tag push.
+        type: string
+        default: ''
+      goreleaser-version:
+        description: GoReleaser version constraint passed to goreleaser-action.
+        type: string
+        default: '~> v2'
+      go-version-file:
+        description: Path to the go.mod that pins the Go version.
+        type: string
+        default: go.mod
+    secrets:
+      GPG_PRIVATE_KEY:
+        description: ASCII-armored GPG private key registered with the Terraform Registry. Absent = unsigned build.
+        required: false
+      PASSPHRASE:
+        description: Passphrase for the GPG private key.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # workflow_dispatch path: create and push the tag, then build from it.
+      # On a tag push these steps are skipped and GoReleaser uses the pushed tag.
+      - name: Create and push tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            echo "::error::version input is required for workflow_dispatch"
+            exit 1
+          fi
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists, skipping creation"
+          else
+            # Tag as the GitHub Actions bot. 41898282 is the github-actions[bot]
+            # account's numeric user id; the "<id>+<login>@users.noreply.github.com"
+            # noreply form is what attributes the tag to that bot on GitHub.
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$VERSION" -m "Release $VERSION"
+            git push origin "$VERSION"
+          fi
+
+      - name: Checkout tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VERSION: ${{ inputs.version }}
+        run: git checkout "$VERSION"
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ inputs.go-version-file }}
+          cache: true
+
+      - name: Check GPG availability
+        id: gpg
+        env:
+          GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          if [ -n "$GPG_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import GPG key
+        if: steps.gpg.outputs.available == 'true'
+        uses: crazy-max/ghaction-import-gpg@v6
+        id: import_gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: ${{ inputs.goreleaser-version }}
+          args: >-
+            release --clean
+            ${{ steps.gpg.outputs.available != 'true' && '--skip=sign' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          # On workflow_dispatch, pin the tag GoReleaser releases; without it
+          # `git describe` can pick an earlier tag sharing the commit. Empty on a
+          # tag push, where GoReleaser correctly uses the pushed tag.
+          GORELEASER_CURRENT_TAG: ${{ inputs.version }}

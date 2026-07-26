@@ -1,0 +1,99 @@
+# Copyright (c) Fabrizio Lungo
+# SPDX-License-Identifier: MPL-2.0
+#
+# Reusable CI for a Terraform provider (Go, Plugin Framework): build + vet,
+# gofmt + golangci-lint, unit tests, and a check that committed Registry docs
+# are in sync with the schema. A consumer calls this on pull_request and push
+# to the default branch; provider-specific acceptance tests stay in the consumer
+# as a separate job in the same workflow file (they need a live backend, which
+# doesn't generalise). See docs/runbooks/adopting-terraform-provider-workflows.md.
+name: Terraform provider test
+
+on:
+  workflow_call:
+    inputs:
+      go-version-file:
+        description: Path to the go.mod that pins the Go version.
+        type: string
+        default: go.mod
+      golangci-lint-version:
+        description: golangci-lint version to install (must be v2.x for a v2-format .golangci.yml).
+        type: string
+        default: v2.5.0
+      terraform-version:
+        description: Terraform version used to render docs for the docs-sync check.
+        type: string
+        default: latest
+      provider-name:
+        description: Provider's Terraform name (e.g. stalwart). Empty = tfplugindocs derives it from the repo name (strips the terraform-provider- prefix).
+        type: string
+        default: ''
+      check-docs:
+        description: Verify committed Registry docs are in sync (regenerate + git diff). Set false for a provider without generated docs.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ inputs.go-version-file }}
+          cache: true
+      - run: go build ./...
+      - run: go vet ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ inputs.go-version-file }}
+          cache: true
+      - name: gofmt
+        run: test -z "$(gofmt -l -s .)" || (gofmt -l -s . && exit 1)
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: ${{ inputs.golangci-lint-version }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ inputs.go-version-file }}
+          cache: true
+      - run: go test ./... -timeout=120s
+
+  # Verifies committed Registry docs match the schema by regenerating them and
+  # diffing, catching drift merged directly to the default branch (the docs
+  # workflow regenerates on feature branches). tfplugindocs is run from the
+  # consumer's module, so the version pinned in its go.mod is used.
+  docs:
+    if: ${{ inputs.check-docs }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ inputs.go-version-file }}
+          cache: true
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+      - name: Check documentation is up to date
+        env:
+          PROVIDER_NAME: ${{ inputs.provider-name }}
+        run: |
+          args=(generate)
+          [ -n "$PROVIDER_NAME" ] && args+=(--provider-name "$PROVIDER_NAME")
+          go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs "${args[@]}"
+          git diff --exit-code docs/

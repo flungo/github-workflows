@@ -1,0 +1,67 @@
+# Copyright (c) Fabrizio Lungo
+# SPDX-License-Identifier: MPL-2.0
+#
+# Reusable "regenerate and commit Registry docs" workflow for a Terraform
+# provider. A consumer calls this on push to non-default branches so contributors
+# never need a local Terraform binary; the docs-sync check in terraform-provider-test.yml
+# keeps the default branch honest. The caller must grant `contents: write` (a
+# reusable workflow's permissions only cap the token — see the adoption guide).
+# See docs/runbooks/adopting-terraform-provider-workflows.md.
+name: Terraform provider docs
+
+on:
+  workflow_call:
+    inputs:
+      go-version-file:
+        description: Path to the go.mod that pins the Go version.
+        type: string
+        default: go.mod
+      terraform-version:
+        description: Terraform version used to render the docs.
+        type: string
+        default: latest
+      provider-name:
+        description: Provider's Terraform name (e.g. stalwart). Empty = tfplugindocs derives it from the repo name (strips the terraform-provider- prefix).
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ inputs.go-version-file }}
+          cache: true
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+      - name: Generate documentation
+        env:
+          PROVIDER_NAME: ${{ inputs.provider-name }}
+        run: |
+          args=(generate)
+          [ -n "$PROVIDER_NAME" ] && args+=(--provider-name "$PROVIDER_NAME")
+          go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs "${args[@]}"
+      - name: Commit generated documentation
+        run: |
+          # Commit as the GitHub Actions bot. 41898282 is the github-actions[bot]
+          # account's numeric user id; the "<id>+<login>@users.noreply.github.com"
+          # noreply form is what attributes the commit to that bot on GitHub.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          if git diff --staged --quiet; then
+            echo "Documentation is already up to date."
+          else
+            git commit -m "docs: regenerate provider documentation"
+            git push
+          fi

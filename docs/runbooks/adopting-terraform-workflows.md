@@ -24,6 +24,7 @@ How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v1`.
 |---|---|---|
 | `TF_TOKEN_APP_TERRAFORM_IO` | yes | HCP state backend |
 | `provider_token` | no | Provider credential, exported as `${tf-var-name}` |
+| `tf_vars` | no | JSON map `{"<var>":"<value>"}` of extra vars, each exported as a masked `TF_VAR_<var>` |
 
 ### Caller
 
@@ -52,6 +53,18 @@ jobs:
 **The `permissions:` block on the calling job is required, not optional.** A reusable workflow's own `permissions:` only *caps* the token; the caller grants it. If the repo's default `GITHUB_TOKEN` is read-only (a common hardening default), omitting this makes the run fail at startup (`startup_failure`) because the reusable workflow requests `pull-requests: write` (to upsert the plan comment) — more than the caller granted. `terraform.yml` needs `contents: read` + `pull-requests: write`; `terraform-drift.yml` needs `contents: read` + `issues: write`.
 
 For a directory-per-owner repo, add `working-directory`, and set an owner-scoped `concurrency-group` and `plan-comment-marker` (e.g. `terraform-flungo`, `<!-- terraform-plan-flungo -->`).
+
+To pass **extra secret variables** the config needs (beyond the provider token — e.g. tokens it distributes to other repos), add the `tf_vars` secret, assembling the JSON map inline from your own standalone secrets so each stays independently rotatable:
+
+```yaml
+    secrets:
+      TF_TOKEN_APP_TERRAFORM_IO: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+      provider_token: ${{ secrets.FLUNGO_GITHUB_TOKEN }}
+      tf_vars: >-
+        {"lychee_github_token": ${{ toJSON(secrets.LYCHEE_GITHUB_TOKEN) }}}
+```
+
+The workflow exports each entry as a masked `TF_VAR_<key>` (here `TF_VAR_lychee_github_token`). Use `toJSON(...)` so each value is correctly quoted and escaped into the JSON.
 
 ### Consuming the plan artifact (follow-on jobs)
 

@@ -7,7 +7,10 @@
 #
 # The provider token is passed generically: the caller supplies `tf-var-name`
 # (the TF_VAR_* env var name) and the `provider_token` secret, so this file
-# names no specific provider.
+# names no specific provider. Any further secret values the config needs (e.g.
+# tokens it distributes to other repos) come through the `tf_vars` secret — a
+# JSON map exported as masked TF_VAR_* env vars — so this file names no specific
+# variable either.
 #
 # working-directory is set per-step (not via `defaults.run`): defaults.run
 # does not evaluate ${{ }} expressions.
@@ -51,6 +54,13 @@ on:
       provider_token:
         description: Provider credential, exported as ${tf-var-name} for Terraform.
         required: false
+      tf_vars:
+        description: >-
+          Optional JSON object {"<var>": "<value>", ...} of extra Terraform
+          variables, each exported as a masked TF_VAR_<var>. For secret values
+          the config needs beyond the provider token (e.g. tokens it distributes
+          to other repos).
+        required: false
 
 concurrency:
   group: ${{ inputs.concurrency-group }}
@@ -77,6 +87,26 @@ jobs:
         run: |
           echo "::add-mask::$PROVIDER_TOKEN"
           echo "$VAR_NAME=$PROVIDER_TOKEN" >> "$GITHUB_ENV"
+
+      - name: Export extra Terraform variables
+        env:
+          TF_VARS_JSON: ${{ secrets.tf_vars }}
+        run: |
+          set -eo pipefail
+          [ -z "$TF_VARS_JSON" ] && exit 0
+          # tf_vars is a JSON object { "<var>": "<value>", ... }; export each as a
+          # masked TF_VAR_<var> so terraform picks it up. Values are secrets — mask
+          # each, and use the GITHUB_ENV heredoc form so a value with special
+          # characters is written literally.
+          jq -r 'keys[]' <<<"$TF_VARS_JSON" | while read -r name; do
+            value="$(jq -r --arg k "$name" '.[$k]' <<<"$TF_VARS_JSON")"
+            echo "::add-mask::$value"
+            {
+              echo "TF_VAR_${name}<<__TFVAR_EOF__"
+              echo "$value"
+              echo "__TFVAR_EOF__"
+            } >> "$GITHUB_ENV"
+          done
 
       - uses: hashicorp/setup-terraform@v3
         with:

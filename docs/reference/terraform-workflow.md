@@ -31,6 +31,7 @@ This is the **extension seam** for callers that need to act on the plan. A calle
 - All credentials are **GitHub Actions secrets**, never HCP workspace variables.
 - `TF_TOKEN_APP_TERRAFORM_IO` authenticates the HCP state backend (shared, org-wide).
 - The **provider token** is passed generically: the caller sets the `tf-var-name` input (e.g. `TF_VAR_github_token`) and supplies the `provider_token` secret; the workflow exports it under that name for Terraform. The provider token is **never Terraform-managed** — a broken apply must not be able to lock a repo out of its own credentials.
+- **Extra secret variables** the config itself needs — e.g. tokens it *distributes* to other repos — come through the **`tf_vars`** secret: a JSON object `{"<var>": "<value>", …}` that the workflow explodes into masked `TF_VAR_<var>` env vars, naming no specific variable. A caller assembles the map inline from its own standalone secrets, so each value stays an independently-rotatable secret — e.g. `tf_vars: '{"lychee_github_token": ${{ toJSON(secrets.LYCHEE_GITHUB_TOKEN) }}}'`.
 
 ## Drift remediation & pausing
 

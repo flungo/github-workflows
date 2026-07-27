@@ -24,6 +24,7 @@ How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v1`.
 |---|---|---|
 | `TF_TOKEN_APP_TERRAFORM_IO` | yes | HCP state backend |
 | `provider_token` | no | Provider credential, exported as `${tf-var-name}` |
+| `tf_vars_json` | no | JSON object of extra Terraform variables (compose from your own secrets); written to `ci.auto.tfvars.json` and auto-loaded. Declare the consuming variables `sensitive`. |
 
 ### Caller
 

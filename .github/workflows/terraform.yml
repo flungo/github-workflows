@@ -51,6 +51,14 @@ on:
       provider_token:
         description: Provider credential, exported as ${tf-var-name} for Terraform.
         required: false
+      tf_vars_json:
+        description: >-
+          Optional JSON object of additional Terraform variables, written to
+          ci.auto.tfvars.json in the working directory before Terraform runs (and
+          auto-loaded). Compose it from the caller's own secrets so no specific
+          variable is named here; the consuming variables should be declared
+          sensitive so their values are redacted in plan output.
+        required: false
 
 concurrency:
   group: ${{ inputs.concurrency-group }}
@@ -77,6 +85,20 @@ jobs:
         run: |
           echo "::add-mask::$PROVIDER_TOKEN"
           echo "$VAR_NAME=$PROVIDER_TOKEN" >> "$GITHUB_ENV"
+
+      # Optional caller-supplied variables (composed from the caller's own
+      # secrets), written as *.auto.tfvars.json so Terraform auto-loads them.
+      # JSON so `terraform fmt -check` ignores it; the file is never uploaded, and
+      # consuming variables should be sensitive so plan output redacts the values.
+      - name: Write extra Terraform variables
+        env:
+          TF_VARS_JSON: ${{ secrets.tf_vars_json }}
+          WORKDIR: ${{ inputs.working-directory }}
+        run: |
+          if [ -n "$TF_VARS_JSON" ]; then
+            printf '%s' "$TF_VARS_JSON" > "$WORKDIR/ci.auto.tfvars.json"
+            echo "Wrote additional Terraform variables to ci.auto.tfvars.json"
+          fi
 
       - uses: hashicorp/setup-terraform@v3
         with:

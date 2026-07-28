@@ -44,6 +44,16 @@ on:
       provider_token:
         description: Provider credential, exported as ${tf-var-name} for Terraform.
         required: false
+      tf_vars:
+        description: >-
+          Optional JSON object {"<var>": "<value>", ...} of extra Terraform
+          variables, each exported as a masked TF_VAR_<var>. Values are
+          single-line strings. For secret values the config needs beyond the
+          provider token (e.g. tokens it distributes to other repos) — declare the
+          consuming variable sensitive so plan output (and the drift issue) redacts
+          it. Mirror the caller's terraform.yml so scheduled drift runs the same
+          config.
+        required: false
 
 concurrency:
   group: ${{ inputs.concurrency-group }}
@@ -87,6 +97,27 @@ jobs:
         run: |
           echo "::add-mask::$PROVIDER_TOKEN"
           echo "$VAR_NAME=$PROVIDER_TOKEN" >> "$GITHUB_ENV"
+
+      - name: Export extra Terraform variables
+        if: steps.pause.outputs.paused != 'true'
+        env:
+          TF_VARS_JSON: ${{ secrets.tf_vars }}
+        run: |
+          set -eo pipefail
+          [ -z "$TF_VARS_JSON" ] && exit 0
+          # tf_vars is a JSON object { "<var>": "<value>", ... }; export each as a
+          # masked TF_VAR_<var> so terraform picks it up. Values are secrets — mask
+          # each, and use the GITHUB_ENV heredoc form so a value with special
+          # characters is written literally.
+          jq -r 'keys[]' <<<"$TF_VARS_JSON" | while read -r name; do
+            value="$(jq -r --arg k "$name" '.[$k]' <<<"$TF_VARS_JSON")"
+            echo "::add-mask::$value"
+            {
+              echo "TF_VAR_${name}<<__TFVAR_EOF__"
+              echo "$value"
+              echo "__TFVAR_EOF__"
+            } >> "$GITHUB_ENV"
+          done
 
       - uses: hashicorp/setup-terraform@v3
         if: steps.pause.outputs.paused != 'true'

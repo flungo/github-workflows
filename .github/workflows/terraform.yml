@@ -57,9 +57,11 @@ on:
       tf_vars:
         description: >-
           Optional JSON object {"<var>": "<value>", ...} of extra Terraform
-          variables, each exported as a masked TF_VAR_<var>. For secret values
-          the config needs beyond the provider token (e.g. tokens it distributes
-          to other repos).
+          variables, each exported as a masked TF_VAR_<var>. Values are
+          single-line strings (env vars carry strings; a map/list would be
+          stringified). For secret values the config needs beyond the provider
+          token (e.g. tokens it distributes to other repos) — declare the
+          consuming variable sensitive so plan output redacts it.
         required: false
 
 concurrency:

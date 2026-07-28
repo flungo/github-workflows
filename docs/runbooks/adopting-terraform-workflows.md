@@ -24,7 +24,7 @@ How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v1`.
 |---|---|---|
 | `TF_TOKEN_APP_TERRAFORM_IO` | yes | HCP state backend |
 | `provider_token` | no | Provider credential, exported as `${tf-var-name}` |
-| `tf_vars` | no | JSON map `{"<var>":"<value>"}` of extra vars, each exported as a masked `TF_VAR_<var>` |
+| `tf_vars` | no | JSON map `{"<var>":"<value>"}` (string values) of extra vars, each exported as a masked `TF_VAR_<var>`; declare the consuming variable `sensitive` |
 
 ### Caller
 
@@ -64,7 +64,9 @@ To pass **extra secret variables** the config needs (beyond the provider token �
         {"lychee_github_token": ${{ toJSON(secrets.LYCHEE_GITHUB_TOKEN) }}}
 ```
 
-The workflow exports each entry as a masked `TF_VAR_<key>` (here `TF_VAR_lychee_github_token`). Use `toJSON(...)` so each value is correctly quoted and escaped into the JSON.
+The workflow exports each entry as a masked `TF_VAR_<key>` (here `TF_VAR_lychee_github_token`). Use `toJSON(...)` so each value is correctly quoted and escaped into the JSON; values are single-line strings (env vars carry strings).
+
+**Declare the consuming Terraform variable `sensitive = true`.** `::add-mask::` keeps each value out of the run *logs*, but the plan text also lands unmasked in the `terraform-plan` artifact and the upserted PR comment (and, from drift, in the `drift` issue) — only `sensitive` keeps a value out of plan output. If the repo also runs `terraform-drift.yml`, pass the same `tf_vars` there too (below) so scheduled drift runs the same config rather than perpetually re-planning the missing variables.
 
 ### Consuming the plan artifact (follow-on jobs)
 
@@ -91,7 +93,7 @@ jobs:
 
 ## `terraform-drift.yml`
 
-Opt-in. Same `working-directory` / `terraform-version` / `concurrency-group` / `tf-var-name` inputs as above, plus `force_run` (boolean). Same secrets. The caller keeps the `schedule` trigger — reusable workflows can't be scheduled directly.
+Opt-in. Same `working-directory` / `terraform-version` / `concurrency-group` / `tf-var-name` inputs as above, plus `force_run` (boolean). Same secrets — **including `tf_vars`**: if the config distributes secret values, mirror the `terraform.yml` caller's `tf_vars` here, or scheduled drift will fail or perpetually re-plan the missing variables (and it pastes plan output into the `drift` issue, so the same `sensitive = true` guidance applies). The caller keeps the `schedule` trigger — reusable workflows can't be scheduled directly.
 
 ```yaml
 name: Terraform Drift Remediation

@@ -64,7 +64,7 @@ To pass **extra secret variables** the config needs (beyond the provider token �
         {"db_password": ${{ toJSON(secrets.DB_PASSWORD) }}}
 ```
 
-The workflow exports each entry as a masked `TF_VAR_<key>` (here `TF_VAR_db_password`). Use `toJSON(...)` so each value is correctly quoted and escaped into the JSON; values are strings (multi-line is fine). Only *secret* values belong in `tf_secret_vars` — every value is masked.
+The workflow exports each entry as a masked `TF_VAR_<key>` (here `TF_VAR_db_password`). Use `toJSON(...)` so each value is correctly quoted and escaped into the JSON; values are strings (multi-line is fine). Only *secret* values belong in `tf_secret_vars` — every value is masked, so it should be genuinely secret and not a short, common string (e.g. `true`, `eu`): each masked value is redacted from **every** step's logs for the rest of the job, so a common one makes unrelated output confusing to read. An empty value, an invalid variable-name key, or malformed JSON fails the step with a clear `::error::` rather than a silent or confusing plan later.
 
 **Declare the consuming Terraform variable `sensitive = true`.** `::add-mask::` keeps each value out of the run *logs*, but the plan text also lands unmasked in the `terraform-plan` artifact and the upserted PR comment (and, from drift, in the `drift` issue) — only `sensitive` keeps a value out of plan output. If the repo also runs `terraform-drift.yml`, pass the same `tf_secret_vars` there too (below) so scheduled drift runs the same config rather than perpetually re-planning the missing variables.
 

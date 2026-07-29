@@ -77,73 +77,29 @@ Applying the semantic line breaks convention (one sentence per source line) to a
 
 Sentence splitting is heuristic (break on a sentence-ending `.`/`?`/`!` + space, outside inline code, minus a small abbreviation list such as `e.g.`/`i.e.`/`etc.`). Imperfect breaks are style-only — the render gate guarantees correctness — and are tidied in later edits.
 
-## `CLAUDE.md` additions
+## Claude conventions — adopt the `markdown-standards` plugin
 
-Part of adopting is teaching future agents how to keep links correct and how to fix the failures these checks raise. Add the following `## Cross-references` section to the repo's `CLAUDE.md` — it is deliberately generic; replace the `<Project>` / `<owner>` / `<repo>` placeholders per repo. Also record the two prose conventions paired with the markdownlint rules — semantic line breaks (`MD013`) and adjacent-blockquote handling (`MD028`) — as their own short `CLAUDE.md` sections (see [`markdown-validation.md`](../reference/markdown-validation.md#markdownlint-rule-defaults-and-their-paired-conventions)).
+Part of adopting is teaching future agents how to keep links correct and how to fix the failures these checks raise.
+Those conventions ship as the [`markdown-standards` plugin](https://github.com/flungo/claude-plugins/tree/main/plugins/markdown-standards) in the `flungo-plugins` marketplace, so they are **adopted, not copied**: the cross-reference/link-hygiene rules (formerly inlined here as a generic `## Cross-references` block), the prose conventions paired with the markdownlint defaults (semantic line breaks / `MD013`, unique cross-referenced headings / `MD024`, adjacent blockquotes / `MD028`), and the fix-the-link-or-its-target-never-suppress remediation guidance.
+The extraction is recorded in [claude-plugins ADR 004](https://github.com/flungo/claude-plugins/blob/main/docs/decisions/004-markdown-standards-plugin.md).
 
-````markdown
-## Cross-references
+Instead of pasting blocks into the repo's `CLAUDE.md`, enable the plugin at project scope in the repo's `.claude/settings.json`:
 
-Keep links and references accurate and unambiguous. These rules apply to **any**
-cross-reference — between docs, to an ADR, to source code, or to another repo.
+```json
+{
+  "extraKnownMarketplaces": {
+    "flungo-plugins": {
+      "source": { "source": "github", "repo": "flungo/claude-plugins" }
+    }
+  },
+  "enabledPlugins": {
+    "markdown-standards@flungo-plugins": true
+  }
+}
+```
 
-The Markdown validation CI enforces the **mechanical** half: the link/anchor
-check fails a PR when a relative link doesn't resolve to a file or an anchor
-doesn't match a heading; markdownlint flags link *style* (bare URLs, empty
-links, same-file fragment validity); and the daily external-URL sweep raises an
-issue for dead external links. The rules below cover both how to fix those
-failures — always fix the link or its target, never suppress the check — and the
-**semantic** hygiene the tools can't verify: that link text is unambiguous and
-correctly qualified.
-
-**General rules — apply to every reference:**
-
-- **Never reference a bare identifier.** `002` alone is ambiguous — write
-  `ADR 002`. The same holds for any target: name what it is (a section, a file
-  like `compose.yml`, a function) so the link text stands on its own. Never use
-  "here" or "this" as link text.
-- **Keep a prefix label in the link text for a single reference; factor it out
-  for a list.** One reference keeps the label inside — `[ADR 002](…)`,
-  `[compose.yml](…)`. For a list, where the label can't sit inside each link,
-  write it once and link the identifiers: `ADR [002](…), [005](…), and [007](…)`.
-- **Same-repo context is implied; cross-repo must be explicit.** A plain
-  reference means this repo. Anything elsewhere is qualified with its
-  project/repo name and linked to its full URL — e.g.
-  `[<Project> ADR 009](https://github.com/<owner>/<repo>/blob/main/docs/decisions/009-….md)`.
-- **Anchors:** put enough context in the link text to disambiguate — if the
-  heading name alone is ambiguous in the sentence, include the page too (e.g.
-  `architecture.md § Naming conventions`).
-- **Give any heading you cross-reference a unique name.** Identical heading text
-  produces order-dependent GitHub anchors (`#symptom`, `#symptom-1`), so a link
-  to a duplicated heading is ambiguous and silently points to the wrong one if a
-  same-named heading is later added before it. `MD024: siblings_only` allows
-  repeated subsection names under different parents, and lychee resolves the
-  `-1`/`-2` suffixes, but the anchor check cannot flag that silent redirect — so
-  link targets must be unique.
-- **Prefer relative links within the repo; full GitHub URLs for other repos.**
-  When linking to source that can move, name the file/symbol (and pin to a tag
-  or commit where it matters) so the reference survives churn.
-- **When you rename or remove a file, heading/anchor, or symbol, search the repo
-  for references and update them** so links don't break — this is what keeps the
-  link/anchor check green. Verify links resolve before committing.
-- **Fixing a flagged external link (daily sweep issue):** verify each URL. If
-  the resource moved, update the link (prefer a stable or pinned URL); if it's
-  genuinely gone, remove or replace it. Add a URL to `.lycheeignore` only when it
-  legitimately 403/404s while unauthenticated (a 404 can be an existence-hiding
-  response) — never to silence a truly dead link.
-
-**ADRs — a concrete example of the general rules:**
-
-- **Local ADR, single:** link the "ADR NNN" text with a path **relative to the
-  linking file** — `[ADR 002](002-….md)` from within `docs/decisions/`,
-  `[ADR 002](decisions/002-…)` from a doc directly in `docs/`,
-  `[ADR 002](../decisions/002-…)` from a doc in a `docs/` subdirectory, and
-  `[ADR 002](docs/decisions/002-…)` from a repo-root file (e.g. `CLAUDE.md`).
-- **Local ADRs, a list:** `ADR [002](…), [005](…), and [007](…)`.
-- **ADR in another repo:** qualify with the repo and link the full text —
-  `[<Project> ADR 009](https://github.com/<owner>/<repo>/blob/main/docs/decisions/009-….md)`;
-  for a list, `<Project> ADR [001](…), [006](…), and [009](…)`.
-````
+- **Repo-specific facts stay in `CLAUDE.md`** — e.g. the pinned local markdownlint-cli2 version (see § Adoption pitfalls and sandbox constraints) and any justified per-repo lint overrides.
+- **A repo that inlined the old blocks** (a `## Cross-references` section or the paired-convention sections from an earlier adoption) removes them in favour of the plugin when next touched — one source of truth.
 
 ## Adoption pitfalls and sandbox constraints
 
@@ -173,9 +129,11 @@ Recorded from real adoptions, several from Claude Code Web sessions. Reading the
 - `workflow_dispatch` can be triggered against the **feature branch** before the workflow is on the default branch — GitHub accepts a dispatch with an explicit `ref` (GitHub MCP `actions_run_trigger`, `method: run_workflow`, `workflow_id: markdown-links.yml`, `ref: <branch>`). This exercises the external job and the auto-issue **create** path straight from the PR. (A `workflow_dispatch`-only workflow that has never run is not indexed and 404s on dispatch; the markdown-links caller's `pull_request` trigger indexes it, so this works.)
 - **Pitfall — a tokenless dispatch floods the issue with false 404s.** Dispatch before `LYCHEE_GITHUB_TOKEN` exists and the action falls back to the repo-scoped `github.token`, which **cannot read other private repos** — so every cross-repo link into a private repo returns `404` and lands in the auto-issue. Those are token artifacts, **not** dead links: do **not** copy them into `.lycheeignore`. Provision the token, re-dispatch, and only then curate `.lycheeignore` from what genuinely remains (typically a few real bot-blocked 403s). This is the concrete reason `.lycheeignore` must be regenerated per repo from a **token-enabled** run.
 
-## Starter prompt for a fresh session
+## Starting an adoption session
 
-To onboard a repo, start a Claude Code session with that repo (and, if the workflows have moved on, this one as read-only reference), then:
+With the [`markdown-standards` plugin](https://github.com/flungo/claude-plugins/tree/main/plugins/markdown-standards) installed (user scope), onboarding is a command: start a session with the target repo and invoke **`/adopt-markdown-ci`** — it carries the checklist (callers, per-repo config, token, check-then-fix order, reflow, plugin adoption) and defers to this runbook as the source of truth.
+
+Without the plugin, the equivalent starter prompt is:
 
 ```text
 Task: add Markdown-validation CI to <owner/target-repo> by adopting the reusable
@@ -190,8 +148,9 @@ docs/runbooks/adopting-markdown-workflows.md in that repo.
   not a step-level env: GITHUB_TOKEN (the reference explains why).
 - Work through the checks in the check-then-fix commit order; run the render-gated
   reflow (scripts/reflow.py) as a best-effort pass.
-- Add the ## Cross-references block and the semantic-line-break / MD028 conventions
-  to this repo's CLAUDE.md.
+- Enable the markdown-standards plugin from the flungo/claude-plugins marketplace
+  at project scope in .claude/settings.json (instead of pasting conventions into
+  CLAUDE.md), and remove any previously inlined copies of its conventions.
 
 Work on a feature branch, never commit to main, and open a PR. If <owner/target-repo>
 has its own CLAUDE.md/CONTRIBUTING guidance, follow it where it differs.

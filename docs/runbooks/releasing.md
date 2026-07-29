@@ -55,16 +55,14 @@ If `release.yml` fails with **"not an ancestor of main"**, the major branch has 
 
 ## Branch protection
 
-`v*` and `main` move **only** by the release workflow (fast-forwarding a `v*` branch) or a merged PR — never a direct human or agent push. This is the **standard branch protection managed as code by [`flungo/terraform-github`](https://github.com/flungo/terraform-github)**, not set by hand here:
+`v*` and `main` move **only** by the release workflow (fast-forwarding a `v*` branch) or a merged PR — never a direct human or agent push. This is the **standard branch protection managed as code by [`flungo/terraform-github`](https://github.com/flungo/terraform-github)**, not set by hand here — `owners/flungo/github-workflows.tf` declares the `v*` pattern and the release App's bypass through the composite's `release_branches` input:
 
-- **`main`** — require a pull request before merging; block force-pushes; block deletion.
-- **`v*`** (pattern `v[0-9]*`) — the same, **plus a bypass for the release App** ([below](#release-push-identity)), so `release.yml`'s fast-forward is allowed while direct human/agent pushes are not. Reverts and backports reach `v*` as ordinary PRs (base `v*`), which the force-push block still permits (a revert is a forward commit).
-
-**Status:** the release-push identity was decided, wired into `release.yml`, and provisioned in [github-workflows#6](https://github.com/flungo/github-workflows/issues/6). Ruleset rollout — including adding the App as the `v*` bypass actor ([step 5 below](#release-push-identity)) — is tracked in [flungo/terraform-github#13](https://github.com/flungo/terraform-github/issues/13).
+- **`main`** — require a pull request before merging; block force-pushes; block deletion. Repository admins keep a deliberate **pull-request-scoped** bypass — they may merge a PR that doesn't meet the rules — but cannot push straight to the branch.
+- **`v*`** (pattern `v[0-9]*`) — the same, **plus an `always` bypass for the release App** ([below](#release-push-identity)), so `release.yml`'s fast-forward is allowed while direct human/agent pushes are not. Reverts and backports reach `v*` as ordinary PRs (base `v*`), which the force-push block still permits (a revert is a forward commit).
 
 ### Release-push identity
 
-The default `GITHUB_TOKEN` (`github-actions[bot]`) generally cannot be a ruleset bypass actor, so `release.yml` pushes as a **GitHub App**: it mints a short-lived installation token in-run with [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token) and uses it for checkout and push, so there is no long-lived push credential to rotate. Until the App is provisioned, `release.yml` **falls back to `GITHUB_TOKEN`** and logs a warning — merges keep releasing while the branches are unprotected, and nothing breaks on the ordering of this change vs. the ruleset. Once the `v*` ruleset is applied, an unconfigured App means the fast-forward is blocked; provision it first.
+The default `GITHUB_TOKEN` (`github-actions[bot]`) generally cannot be a ruleset bypass actor, so `release.yml` pushes as a **GitHub App**: it mints a short-lived installation token in-run with [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token) and uses it for checkout and push, so there is no long-lived push credential to rotate. The App is provisioned and in use. Should its configuration ever go missing, `release.yml` **falls back to `GITHUB_TOKEN`** and logs a warning; with the `v*` ruleset now live that fallback cannot push, so the release would fail loudly rather than silently — restore the variable and secret below.
 
 Inventory — everything this identity adds to the repo:
 
@@ -85,7 +83,7 @@ To provision (once) — all under the `flungo` account:
 2. **Record the App ID and generate the key** — on the App's **General** page after creation: copy the **App ID** (the `RELEASE_APP_ID` value), then **Private keys → Generate a private key**, which downloads a `.pem` (the `RELEASE_APP_PRIVATE_KEY` value).
 3. **Install it** — App page → **Install App** → the `flungo` account → **Only select repositories** → this repository only.
 4. **Configure this repo** — Settings → Secrets and variables → Actions: add the **variable** `RELEASE_APP_ID` (the numeric App ID) and the **secret** `RELEASE_APP_PRIVATE_KEY` (the *entire* `.pem` contents, including the `-----BEGIN/END RSA PRIVATE KEY-----` lines). Then delete the downloaded `.pem` — the key stays registered on the App, and the secret is the only copy needed.
-5. **Add the bypass actor** — in the `v[0-9]*` ruleset managed by `terraform-github` ([#13](https://github.com/flungo/terraform-github/issues/13)):
+5. **Add the bypass actor** — in the `v[0-9]*` ruleset managed by `terraform-github`. For this repo it is already declared, in `owners/flungo/github-workflows.tf`, via the composite's `release_branches` input ([#13](https://github.com/flungo/terraform-github/issues/13)); the ruleset it produces carries:
 
    ```hcl
    bypass_actors {
@@ -95,7 +93,7 @@ To provision (once) — all under the `flungo` account:
    }
    ```
 
-   The App must be installed on the repo (step 3) for the bypass to take effect. `main`'s ruleset gets **no** bypass actors.
+   The App must be installed on the repo (step 3) for the bypass to take effect. `main`'s ruleset gets **no App bypass** — only the standard pull-request-scoped admin one, which cannot push directly.
 6. **Verify** — on the next merge to `main`, the Release run's log shows the *Mint release App token* step running (not skipped), no "release App is not configured" warning, and the usual `Released: …` notice. A [dry-run dispatch](#testing-the-decision-without-moving-anything) gives the same confirmation without moving anything.
 
 To rotate: generate a new private key on the App, update `RELEASE_APP_PRIVATE_KEY`, then delete the old key. Exposure of the key is bounded by the App's single permission and single-repo installation.
@@ -104,4 +102,4 @@ To rotate: generate a new private key on the App, update `RELEASE_APP_PRIVATE_KE
 
 - **Never create a `vN` tag.** With both a `vN` tag and a `vN` branch, `@vN` is ambiguous. This repo uses branches only.
 - **Never rename or delete the current major branch** without updating `MAJOR_BRANCH` — consumers resolve `@vN` against it.
-- **Never force-push a `v*` branch** except as a documented last-resort recovery, and only by a maintainer with bypass — consumers pin these branches, and a rewrite changes history under them.
+- **Never force-push a `v*` branch** — consumers pin these branches, and a rewrite changes history under them. The ruleset now enforces this: the admin bypass is pull-request-scoped, so **no human can force-push `v*`**. Only the release App holds an `always` bypass, and `release.yml` refuses any non-fast-forward move itself. A genuine last-resort recovery therefore means deliberately and temporarily relaxing the ruleset in `terraform-github` — never a quiet local `--force`.

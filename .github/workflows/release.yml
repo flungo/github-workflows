@@ -11,6 +11,11 @@
 # at main, and the previous major branch is simply never advanced again — so
 # `@v<old>` consumers freeze on their last compatible commit until they migrate.
 # See docs/runbooks/releasing.md.
+#
+# Push identity: the release App when configured (RELEASE_APP_ID variable +
+# RELEASE_APP_PRIVATE_KEY secret) — the bypass actor on the v* ruleset, since
+# the default GITHUB_TOKEN cannot be one — falling back to GITHUB_TOKEN until
+# it is provisioned. See docs/runbooks/releasing.md § Release-push identity.
 name: Release
 
 on:
@@ -24,7 +29,7 @@ on:
         default: true
 
 permissions:
-  contents: write        # fast-forward / create the major release branch
+  contents: write        # fallback push identity while the release App is unconfigured
 
 concurrency:
   group: release
@@ -40,9 +45,21 @@ jobs:
   advance:
     runs-on: ubuntu-latest
     steps:
+      - name: Mint release App token
+        id: app-token
+        if: vars.RELEASE_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Warn that the release App is not configured
+        if: vars.RELEASE_APP_ID == ''
+        run: echo "::warning::RELEASE_APP_ID is not set — pushing with the default GITHUB_TOKEN, which the v* ruleset (once applied) will block. Provision the release App per docs/runbooks/releasing.md § Release-push identity."
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0        # need main's full history to prove fast-forwards
+          token: ${{ steps.app-token.outputs.token || github.token }}
       - name: Advance ${{ env.MAJOR_BRANCH }} to main
         env:
           # Real advance on a merge; safe preview by default on manual dispatch.

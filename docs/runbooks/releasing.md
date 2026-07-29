@@ -58,11 +58,47 @@ If `release.yml` fails with **"not an ancestor of main"**, the major branch has 
 `v*` and `main` move **only** by the release workflow (fast-forwarding a `v*` branch) or a merged PR — never a direct human or agent push. This is the **standard branch protection managed as code by [`flungo/terraform-github`](https://github.com/flungo/terraform-github)**, not set by hand here:
 
 - **`main`** — require a pull request before merging; block force-pushes; block deletion.
-- **`v*`** (pattern `v[0-9]*`) — the same, **plus a bypass for the release workflow's push identity**, so `release.yml`'s fast-forward is allowed while direct human/agent pushes are not. Reverts and backports reach `v*` as ordinary PRs (base `v*`), which the force-push block still permits (a revert is a forward commit).
+- **`v*`** (pattern `v[0-9]*`) — the same, **plus a bypass for the release App** ([below](#release-push-identity)), so `release.yml`'s fast-forward is allowed while direct human/agent pushes are not. Reverts and backports reach `v*` as ordinary PRs (base `v*`), which the force-push block still permits (a revert is a forward commit).
 
-**Status:** not yet applied — rollout is tracked in [flungo/terraform-github#13](https://github.com/flungo/terraform-github/issues/13). The one open detail is the bypass identity: the default `GITHUB_TOKEN` (`github-actions[bot]`) generally can't be a ruleset bypass actor, so `release.yml`'s push will need a GitHub App token or fine-grained PAT — carried in [github-workflows#6](https://github.com/flungo/github-workflows/issues/6).
+**Status:** the release-push identity was decided, wired into `release.yml`, and provisioned in [github-workflows#6](https://github.com/flungo/github-workflows/issues/6). Ruleset rollout — including adding the App as the `v*` bypass actor ([step 5 below](#release-push-identity)) — is tracked in [flungo/terraform-github#13](https://github.com/flungo/terraform-github/issues/13).
 
-> **🤖 Agent** — if that identity moves off `github.token`, update `release.yml`'s checkout + push to use it and record the secret in the repo's inventory.
+### Release-push identity
+
+The default `GITHUB_TOKEN` (`github-actions[bot]`) generally cannot be a ruleset bypass actor, so `release.yml` pushes as a **GitHub App**: it mints a short-lived installation token in-run with [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token) and uses it for checkout and push, so there is no long-lived push credential to rotate. Until the App is provisioned, `release.yml` **falls back to `GITHUB_TOKEN`** and logs a warning — merges keep releasing while the branches are unprotected, and nothing breaks on the ordering of this change vs. the ruleset. Once the `v*` ruleset is applied, an unconfigured App means the fast-forward is blocked; provision it first.
+
+Inventory — everything this identity adds to the repo:
+
+| Item | Kind | Purpose |
+|---|---|---|
+| Release App | GitHub App owned by `flungo`, installed on **this repo only**, repository permission **Contents: read & write** and nothing else | The push identity; the **bypass actor** on the `v*` ruleset |
+| `RELEASE_APP_ID` | Actions **variable** on this repo | The App's ID (not sensitive); also the switch — `release.yml` uses the App iff this is set |
+| `RELEASE_APP_PRIVATE_KEY` | Actions **secret** on this repo | A private key generated for the App (PEM), used only to mint the in-run token |
+
+To provision (once) — all under the `flungo` account:
+
+1. **Create the App** — [Settings → Developer settings → GitHub Apps → New GitHub App](https://github.com/settings/apps/new):
+   - **GitHub App name** — globally unique across GitHub: `flungo-release` (pushes then appear as `flungo-release[bot]`).
+   - **Homepage URL** — required but cosmetic; this repo's URL.
+   - **Webhook** — untick **Active** (which also drops the webhook-URL requirement). The App never receives events; it exists only to mint tokens.
+   - **Repository permissions** — **Contents: Read and write**; leave everything else at "No access" (the mandatory read-only Metadata permission is added automatically).
+   - **Where can this GitHub App be installed?** — **Only on this account**.
+2. **Record the App ID and generate the key** — on the App's **General** page after creation: copy the **App ID** (the `RELEASE_APP_ID` value), then **Private keys → Generate a private key**, which downloads a `.pem` (the `RELEASE_APP_PRIVATE_KEY` value).
+3. **Install it** — App page → **Install App** → the `flungo` account → **Only select repositories** → this repository only.
+4. **Configure this repo** — Settings → Secrets and variables → Actions: add the **variable** `RELEASE_APP_ID` (the numeric App ID) and the **secret** `RELEASE_APP_PRIVATE_KEY` (the *entire* `.pem` contents, including the `-----BEGIN/END RSA PRIVATE KEY-----` lines). Then delete the downloaded `.pem` — the key stays registered on the App, and the secret is the only copy needed.
+5. **Add the bypass actor** — in the `v[0-9]*` ruleset managed by `terraform-github` ([#13](https://github.com/flungo/terraform-github/issues/13)):
+
+   ```hcl
+   bypass_actors {
+     actor_type  = "Integration"
+     actor_id    = <App ID>    # same number as RELEASE_APP_ID
+     bypass_mode = "always"
+   }
+   ```
+
+   The App must be installed on the repo (step 3) for the bypass to take effect. `main`'s ruleset gets **no** bypass actors.
+6. **Verify** — on the next merge to `main`, the Release run's log shows the *Mint release App token* step running (not skipped), no "release App is not configured" warning, and the usual `Released: …` notice. A [dry-run dispatch](#testing-the-decision-without-moving-anything) gives the same confirmation without moving anything.
+
+To rotate: generate a new private key on the App, update `RELEASE_APP_PRIVATE_KEY`, then delete the old key. Exposure of the key is bounded by the App's single permission and single-repo installation.
 
 ## Never
 

@@ -12,10 +12,10 @@
 # `@v<old>` consumers freeze on their last compatible commit until they migrate.
 # See docs/runbooks/releasing.md.
 #
-# Push identity: the release App when configured (RELEASE_APP_ID variable +
-# RELEASE_APP_PRIVATE_KEY secret) — the bypass actor on the v* ruleset, since
-# the default GITHUB_TOKEN cannot be one — falling back to GITHUB_TOKEN until
-# it is provisioned. See docs/runbooks/releasing.md § Release-push identity.
+# Push identity: the release App (RELEASE_APP_ID variable +
+# RELEASE_APP_PRIVATE_KEY secret) — the bypass actor on the v* ruleset, which the
+# default GITHUB_TOKEN cannot be. See docs/runbooks/releasing.md
+# § Release-push identity.
 name: Release
 
 on:
@@ -29,7 +29,7 @@ on:
         default: true
 
 permissions:
-  contents: write        # fallback push identity while the release App is unconfigured
+  contents: read         # the App token does the writing; GITHUB_TOKEN only reads
 
 concurrency:
   group: release
@@ -47,19 +47,15 @@ jobs:
     steps:
       - name: Mint release App token
         id: app-token
-        if: vars.RELEASE_APP_ID != ''
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           permission-contents: write
-      - name: Warn that the release App is not configured
-        if: vars.RELEASE_APP_ID == ''
-        run: echo "::warning::RELEASE_APP_ID is not set — pushing with the default GITHUB_TOKEN, which the v* ruleset (once applied) will block. Provision the release App per docs/runbooks/releasing.md § Release-push identity."
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0        # need main's full history to prove fast-forwards
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token }}
       - name: Advance ${{ env.MAJOR_BRANCH }} to main
         env:
           # Real advance on a merge; safe preview by default on manual dispatch.

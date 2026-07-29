@@ -14,7 +14,7 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
   - `runbooks/` — repeatable how-to guides: `adopting-terraform-workflows.md`, `adopting-terraform-provider-workflows.md`, `adopting-markdown-workflows.md`, `adopting-version-check.md`, `releasing.md`.
   - `decisions/` — ADRs, numbered sequentially and never renumbered.
   - `plans/` — one-time procedures, tracked to completion then retired.
-- `scripts/` — helper scripts referenced by the runbooks (e.g. `reflow.py`, the render-gated semantic-line-break reflow used when adopting the Markdown workflows).
+- House-style conventions, and the tooling that applies them, are **not** in this repo. Each workflow family has a matching standards plugin in the [`flungo-plugins` marketplace](https://github.com/flungo/claude-plugins) — `terraform-standards`, `terraform-provider-standards`, `markdown-standards` — so every family's workflows stay adoptable by a repo that wants none of the house style.
 
 ## Conventions
 

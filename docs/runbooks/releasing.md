@@ -62,14 +62,14 @@ If `release.yml` fails with **"not an ancestor of main"**, the major branch has 
 
 ### Release-push identity
 
-The default `GITHUB_TOKEN` (`github-actions[bot]`) generally cannot be a ruleset bypass actor, so `release.yml` pushes as a **GitHub App**: it mints a short-lived installation token in-run with [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token) and uses it for checkout and push, so there is no long-lived push credential to rotate. The App is provisioned and in use. Should its configuration ever go missing, `release.yml` **falls back to `GITHUB_TOKEN`** and logs a warning; with the `v*` ruleset now live that fallback cannot push, so the release would fail loudly rather than silently — restore the variable and secret below.
+The default `GITHUB_TOKEN` (`github-actions[bot]`) generally cannot be a ruleset bypass actor, so `release.yml` pushes as a **GitHub App**: it mints a short-lived installation token in-run with [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token) and uses it for checkout and push, so there is no long-lived push credential to rotate.
 
 Inventory — everything this identity adds to the repo:
 
 | Item | Kind | Purpose |
 |---|---|---|
 | Release App | GitHub App owned by `flungo`, installed on **this repo only**, repository permission **Contents: read & write** and nothing else | The push identity; the **bypass actor** on the `v*` ruleset |
-| `RELEASE_APP_ID` | Actions **variable** on this repo | The App's ID (not sensitive); also the switch — `release.yml` uses the App iff this is set |
+| `RELEASE_APP_ID` | Actions **variable** on this repo | The App's ID (not sensitive). Required — `release.yml` fails without it |
 | `RELEASE_APP_PRIVATE_KEY` | Actions **secret** on this repo | A private key generated for the App (PEM), used only to mint the in-run token |
 
 To provision (once) — all under the `flungo` account:
@@ -94,7 +94,7 @@ To provision (once) — all under the `flungo` account:
    ```
 
    The App must be installed on the repo (step 3) for the bypass to take effect. `main`'s ruleset gets **no App bypass** — only the standard pull-request-scoped admin one, which cannot push directly.
-6. **Verify** — on the next merge to `main`, the Release run's log shows the *Mint release App token* step running (not skipped), no "release App is not configured" warning, and the usual `Released: …` notice. A [dry-run dispatch](#testing-the-decision-without-moving-anything) gives the same confirmation without moving anything.
+6. **Verify** — on the next merge to `main`, the Release run's log shows the *Mint release App token* step succeeding and the usual `Released: …` notice. A [dry-run dispatch](#testing-the-decision-without-moving-anything) gives the same confirmation without moving anything.
 
 To rotate: generate a new private key on the App, update `RELEASE_APP_PRIVATE_KEY`, then delete the old key. Exposure of the key is bounded by the App's single permission and single-repo installation.
 

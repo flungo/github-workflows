@@ -28,6 +28,13 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 
 Same rules as the sibling repos, following the Diátaxis split: docs are task-oriented (`runbooks/`), information-oriented (`reference/`), or decision-oriented (`decisions/`); plans (`plans/`) are one-time and retired when done. After any change under `docs/`, refresh the relevant `README.md` index in the same commit — a stale index row is actively misleading. After an architectural decision, add an ADR in `docs/decisions/` and a one-line summary to its `README.md`.
 
+## Deferred follow-ups
+
+Improvements intentionally not done yet — the linked ADR carries the full reasoning:
+
+- **Extract the duplicated `TF_VAR` export step to a composite action.** `terraform.yml` and `terraform-drift.yml` inline the same "export the provider token + `tf_secret_vars`" shell. Deferred because a reusable workflow must reference a shared action by full path (`flungo/github-workflows/.github/actions/…@v1`) — a local `./` action resolves against the *caller's* checkout — which creates a pre-merge testing chicken-and-egg (the action's change isn't on `@v1` until it merges). Revisit if we add a way to exercise an `@v1`-referenced action from a feature branch. ([ADR-008](docs/decisions/008-secret-terraform-variables.md))
+- **A non-secret extra-variables path.** `tf_secret_vars` (a `secrets:` entry) carries only masked secret values; the plain `tf_vars` name is reserved for a future non-secret `inputs:` mechanism, added when a consumer actually needs one. ([ADR-008](docs/decisions/008-secret-terraform-variables.md))
+
 ## Working in this repo with Claude Code
 
 Use the GitHub MCP (`mcp__github__*`) for PRs, CI status, and comments — there is no `gh` CLI. Trigger on-demand runs with `mcp__github__actions_run_trigger` (`workflow_id`, `ref`), surface the run URL (`https://github.com/flungo/github-workflows/actions/runs/<run_id>`), and report the outcome.

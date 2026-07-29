@@ -7,10 +7,10 @@
 #
 # The provider token is passed generically: the caller supplies `tf-var-name`
 # (the TF_VAR_* env var name) and the `provider_token` secret, so this file
-# names no specific provider. Any further secret values the config needs (e.g.
-# tokens it distributes to other repos) come through the `tf_vars` secret — a
-# JSON map exported as masked TF_VAR_* env vars — so this file names no specific
-# variable either.
+# names no specific provider. Any further secret values the config needs (e.g. a
+# database password or an API key a resource is configured with) come through the
+# `tf_vars` secret — a JSON map exported as masked TF_VAR_* env vars — so this
+# file names no specific variable either.
 #
 # working-directory is set per-step (not via `defaults.run`): defaults.run
 # does not evaluate ${{ }} expressions.
@@ -56,12 +56,14 @@ on:
         required: false
       tf_vars:
         description: >-
-          Optional JSON object {"<var>": "<value>", ...} of extra Terraform
-          variables, each exported as a masked TF_VAR_<var>. Values are
-          single-line strings (env vars carry strings; a map/list would be
-          stringified). For secret values the config needs beyond the provider
-          token (e.g. tokens it distributes to other repos) — declare the
-          consuming variable sensitive so plan output redacts it.
+          Optional JSON object {"<var>": "<value>", ...} of extra *secret*
+          Terraform variables — every value is masked and treated as a secret
+          (non-secret vars don't belong here). Each is exported as a masked
+          TF_VAR_<var>; values are strings (a map/list would be stringified,
+          multi-line is fine). For a secret the config consumes beyond the
+          provider token — e.g. a database password or an API key a resource
+          needs — declare the consuming variable sensitive so plan output
+          redacts it.
         required: false
 
 concurrency:
@@ -97,12 +99,15 @@ jobs:
           set -eo pipefail
           [ -z "$TF_VARS_JSON" ] && exit 0
           # tf_vars is a JSON object { "<var>": "<value>", ... }; export each as a
-          # masked TF_VAR_<var> so terraform picks it up. Values are secrets — mask
-          # each, and use the GITHUB_ENV heredoc form so a value with special
-          # characters is written literally.
+          # masked TF_VAR_<var> so terraform picks it up. Mask every line of each
+          # value: ::add-mask:: is line-oriented, so masking a multi-line value as
+          # one string registers only line 1 and prints the rest in the clear. The
+          # GITHUB_ENV heredoc form then carries any multi-line value across intact.
           jq -r 'keys[]' <<<"$TF_VARS_JSON" | while read -r name; do
             value="$(jq -r --arg k "$name" '.[$k]' <<<"$TF_VARS_JSON")"
-            echo "::add-mask::$value"
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::add-mask::$line"
+            done <<<"$value"
             {
               echo "TF_VAR_${name}<<__TFVAR_EOF__"
               echo "$value"

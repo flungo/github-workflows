@@ -46,13 +46,13 @@ on:
         required: false
       tf_vars:
         description: >-
-          Optional JSON object {"<var>": "<value>", ...} of extra Terraform
-          variables, each exported as a masked TF_VAR_<var>. Values are
-          single-line strings. For secret values the config needs beyond the
-          provider token (e.g. tokens it distributes to other repos) — declare the
-          consuming variable sensitive so plan output (and the drift issue) redacts
-          it. Mirror the caller's terraform.yml so scheduled drift runs the same
-          config.
+          Optional JSON object {"<var>": "<value>", ...} of extra *secret*
+          Terraform variables — every value is masked and treated as a secret.
+          Each is exported as a masked TF_VAR_<var>. For a secret the config
+          consumes beyond the provider token — e.g. a database password or an API
+          key a resource needs — declare the consuming variable sensitive so plan
+          output (and the drift issue) redacts it. Mirror the caller's
+          terraform.yml so scheduled drift runs the same config.
         required: false
 
 concurrency:
@@ -106,12 +106,15 @@ jobs:
           set -eo pipefail
           [ -z "$TF_VARS_JSON" ] && exit 0
           # tf_vars is a JSON object { "<var>": "<value>", ... }; export each as a
-          # masked TF_VAR_<var> so terraform picks it up. Values are secrets — mask
-          # each, and use the GITHUB_ENV heredoc form so a value with special
-          # characters is written literally.
+          # masked TF_VAR_<var> so terraform picks it up. Mask every line of each
+          # value: ::add-mask:: is line-oriented, so masking a multi-line value as
+          # one string registers only line 1 and prints the rest in the clear. The
+          # GITHUB_ENV heredoc form then carries any multi-line value across intact.
           jq -r 'keys[]' <<<"$TF_VARS_JSON" | while read -r name; do
             value="$(jq -r --arg k "$name" '.[$k]' <<<"$TF_VARS_JSON")"
-            echo "::add-mask::$value"
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::add-mask::$line"
+            done <<<"$value"
             {
               echo "TF_VAR_${name}<<__TFVAR_EOF__"
               echo "$value"

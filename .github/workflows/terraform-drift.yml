@@ -44,7 +44,7 @@ on:
       provider_token:
         description: Provider credential, exported as ${tf-var-name} for Terraform.
         required: false
-      tf_vars:
+      tf_secret_vars:
         description: >-
           Optional JSON object {"<var>": "<value>", ...} of extra *secret*
           Terraform variables — every value is masked and treated as a secret.
@@ -101,17 +101,17 @@ jobs:
       - name: Export extra Terraform variables
         if: steps.pause.outputs.paused != 'true'
         env:
-          TF_VARS_JSON: ${{ secrets.tf_vars }}
+          TF_SECRET_VARS_JSON: ${{ secrets.tf_secret_vars }}
         run: |
           set -eo pipefail
-          [ -z "$TF_VARS_JSON" ] && exit 0
-          # tf_vars is a JSON object { "<var>": "<value>", ... }; export each as a
+          [ -z "$TF_SECRET_VARS_JSON" ] && exit 0
+          # tf_secret_vars is a JSON object { "<var>": "<value>", ... }; export each as a
           # masked TF_VAR_<var> so terraform picks it up. Mask every line of each
           # value: ::add-mask:: is line-oriented, so masking a multi-line value as
           # one string registers only line 1 and prints the rest in the clear. The
           # GITHUB_ENV heredoc form then carries any multi-line value across intact.
-          jq -r 'keys[]' <<<"$TF_VARS_JSON" | while read -r name; do
-            value="$(jq -r --arg k "$name" '.[$k]' <<<"$TF_VARS_JSON")"
+          jq -r 'keys[]' <<<"$TF_SECRET_VARS_JSON" | while read -r name; do
+            value="$(jq -r --arg k "$name" '.[$k]' <<<"$TF_SECRET_VARS_JSON")"
             while IFS= read -r line; do
               [ -n "$line" ] && echo "::add-mask::$line"
             done <<<"$value"

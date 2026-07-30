@@ -54,7 +54,7 @@ Both files are **repo-specific — regenerate them, don't copy another repo's**:
 
 > **Prefer an automated adoption?** Fabrizio's [`markdown-standards` plugin](https://github.com/flungo/claude-plugins/tree/main/plugins/markdown-standards) drives everything in this section as a single **`/adopt-markdown-ci`** command, bundled with his Markdown conventions — see [§ Optional — automated adoption with Fabrizio's conventions](#optional--automated-adoption-with-fabrizios-conventions) below. The procedure here stands on its own if you would rather not take those opinions.
 
-Introduce the checks **one at a time**, and for each one confirm it goes red before fixing what it finds — a check you have never seen fail is a check you have not verified. Expect a first-time markdownlint run to produce many findings.
+Introduce the checks **one at a time**, and for each of the two blocking checks confirm it goes red before fixing what it finds — a check you have never seen fail is a check you have not verified. The external sweep is the exception, for the reason in [§ The external sweep does not need a manufactured failure](#the-external-sweep-does-not-need-a-manufactured-failure) below. Expect a first-time markdownlint run to produce many findings.
 
 How that work is then split into commits or PRs is the adopting repo's business; the plugin encodes one opinionated discipline for it.
 
@@ -62,7 +62,13 @@ Verify each check as you add it:
 
 1. **Internal links + anchors** (`markdown-links.yml` internal job) — offline and blocking, so it must be green to merge. Confirm it goes red on both a genuinely broken relative link and a bad `#anchor`.
 2. **markdownlint** (`markdown-lint.yml` + `.markdownlint-cli2.jsonc`) — style and structure only; it does not check cross-file links.
-3. **External URLs** (`markdown-links.yml` external job + `.lycheeignore`) — verify **in GitHub via `workflow_dispatch`**, not from a sandbox with limited egress, and only once `LYCHEE_GITHUB_TOKEN` exists (see the pitfalls below). Confirm: external URLs are checked; a broken link **creates one issue**; a second dispatch **updates the same issue** (no duplicate); a clean run **closes** it. Add genuine 403/404-when-unauthenticated offenders to `.lycheeignore` and re-dispatch until green.
+3. **External URLs** (`markdown-links.yml` external job + `.lycheeignore`) — dispatch it **in GitHub via `workflow_dispatch`**, not from a sandbox with limited egress, and only once `LYCHEE_GITHUB_TOKEN` exists (see the pitfalls below). Confirm the run reaches the external job and reports on this repo's own URLs, then add genuine 403/404-when-unauthenticated offenders to `.lycheeignore` and re-dispatch until green. One clean run is all this step needs.
+
+### The external sweep does not need a manufactured failure
+
+Breaking a link on purpose to watch the sweep open an issue is **not** part of adopting the workflows in a new repo. The create/update/close lifecycle — one issue opened, updated in place on the next dispatch rather than duplicated, and closed once a later run comes back clean — is behaviour of the pinned reusable workflow, identical in every caller, so it is verified once per major version rather than in each adopting repo. It was verified for `@v1` in [flungo/claude-plugins#12](https://github.com/flungo/claude-plugins/pull/12).
+
+Nor does a clean run hide a missing `issues: write` grant. Because the reusable workflow requests that permission, a caller that does not grant it fails at startup — see [§ `markdown-links.yml`](#markdown-linksyml) above — so a dispatch that runs at all has already proved the grant is adequate. What is genuinely per-repo is the URL set and the token, and one clean dispatch exercises both.
 
 ## Optional — automated adoption with Fabrizio's conventions
 

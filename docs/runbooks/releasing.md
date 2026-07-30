@@ -22,7 +22,7 @@ In the **same PR** as the breaking change:
 2. **Update the docs that track the latest version.** Search the repo for `v<old>` — broader than `@v<old>`, so it also catches prose and tables that name the version without the `@`, at the cost of more matches to sift — and bump every reference meant to show consumers the current major (the [README](../../README.md) and the adoption runbooks: [Terraform](adopting-terraform-workflows.md), [Markdown](adopting-markdown-workflows.md)) to the new major. Leave version-specific mentions — historical and migration notes — as they are.
 3. Land the PR as normal.
 
-On merge, `release.yml` sees the new name, **creates `v2` at `main`**, and never touches `v1` again — so `@v1` consumers **freeze** on their last compatible commit. That one-line edit, visible in the PR diff, is the whole "this is a major" decision; there is nothing else to parse or label.
+On merge, `release.yml` sees the new name, **creates `v2` at `main`**, and never touches `v1` again — so `@v1` consumers **freeze** on their last compatible commit. Don't pre-create `v2` by hand: creation is restricted to the release App and the push would be rejected (see [Never](#never)). That one-line edit, visible in the PR diff, is the whole "this is a major" decision; there is nothing else to parse or label.
 
 Then, on each consumer, migrate `@v1` → `@v2` when you're ready and have accommodated the breaking change. Consumers move deliberately — nothing is pushed onto them. Opted-in consumers raise their own migration reminder — see [Tracking consumer migration](#tracking-consumer-migration).
 
@@ -58,7 +58,7 @@ If `release.yml` fails with **"not an ancestor of main"**, the major branch has 
 `v*` and `main` move **only** by the release workflow (fast-forwarding a `v*` branch) or a merged PR — never a direct human or agent push. This is the **standard branch protection managed as code by [`flungo/terraform-github`](https://github.com/flungo/terraform-github)**, not set by hand here — `owners/flungo/github-workflows.tf` declares the `v*` pattern and the release App's bypass through the composite's `release_branches` input:
 
 - **`main`** — require a pull request before merging; block force-pushes; block deletion. Repository admins keep a deliberate **pull-request-scoped** bypass — they may merge a PR that doesn't meet the rules — but cannot push straight to the branch.
-- **`v*`** (pattern `v[0-9]*`) — the same, **plus an `always` bypass for the release App** ([below](#release-push-identity)), so `release.yml`'s fast-forward is allowed while direct human/agent pushes are not. Reverts and backports reach `v*` as ordinary PRs (base `v*`), which the force-push block still permits (a revert is a forward commit).
+- **`v*`** (pattern `v[0-9]*`) — the same, **plus an `always` bypass for the release App** ([below](#release-push-identity)), so `release.yml`'s fast-forward is allowed while direct human/agent pushes are not. It also **restricts creation** to that App: only `release.yml` can cut a new major, and no one can create an unrelated branch under the pattern. Reverts and backports reach `v*` as ordinary PRs (base `v*`), which the force-push block still permits (a revert is a forward commit) — advancing a release branch by PR stays open by design.
 
 ### Release-push identity
 
@@ -93,6 +93,8 @@ To provision (once) — all under the `flungo` account:
    }
    ```
 
+   and, in the same ruleset's `rules` block, `creation = true` — set by the composite as `restrict_creation` — limiting *creation* of a matching branch to that same App ([terraform-github#29](https://github.com/flungo/terraform-github/pull/29)). Grep the caller for `restrict_creation`, not `creation`.
+
    The App must be installed on the repo (step 3) for the bypass to take effect. `main`'s ruleset gets **no App bypass** — only the standard pull-request-scoped admin one, which cannot push directly.
 6. **Verify** — on the next merge to `main`, the Release run's log shows the *Mint release App token* step succeeding and the usual `Released: …` notice. A [dry-run dispatch](#testing-the-decision-without-moving-anything) gives the same confirmation without moving anything.
 
@@ -101,5 +103,6 @@ To rotate: generate a new private key on the App, update `RELEASE_APP_PRIVATE_KE
 ## Never
 
 - **Never create a `vN` tag.** With both a `vN` tag and a `vN` branch, `@vN` is ambiguous. This repo uses branches only.
-- **Never rename or delete the current major branch** without updating `MAJOR_BRANCH` — consumers resolve `@vN` against it.
+- **Never rename or delete the current major branch.** Consumers resolve `@vN` against it. The ruleset blocks deletion outright — no human can, the admin bypass being pull-request-scoped — and a rename needs a create, which is restricted to the release App. Doing either deliberately means updating `MAJOR_BRANCH` *and* temporarily relaxing the ruleset in `terraform-github`.
+- **Never create a `v[0-9]*` branch by hand** — you can't: creation of any matching ref is restricted to the release App, so the attempt is rejected, admins included (the admin bypass is pull-request-scoped and covers neither creation nor deletion). The pattern is fnmatch rather than a regex, so it catches `v9`, `v1x` and `v2-test` too. The cost it guards against is worst for an *exact* name: a hand-made `v2` would make [`version-check.yml`](../../.github/workflows/version-check.yml) read `v2` as the latest published major and raise migration issues in every opted-in consumer, for a major nobody cut. The rejection message explains none of this, so give scratch branches a name outside the pattern and let `release.yml` cut the real ones. Bootstrapping or restoring a `v*` branch by hand means temporarily relaxing the ruleset in `terraform-github`.
 - **Never force-push a `v*` branch** — consumers pin these branches, and a rewrite changes history under them. The ruleset now enforces this: the admin bypass is pull-request-scoped, so **no human can force-push `v*`**. Only the release App holds an `always` bypass, and `release.yml` refuses any non-fast-forward move itself. A genuine last-resort recovery therefore means deliberately and temporarily relaxing the ruleset in `terraform-github` — never a quiet local `--force`.

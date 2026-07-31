@@ -28,6 +28,14 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 
 Same rules as the sibling repos, following the Diátaxis split: docs are task-oriented (`runbooks/`), information-oriented (`reference/`), or decision-oriented (`decisions/`); plans (`plans/`) are one-time and retired when done. After any change under `docs/`, refresh the relevant `README.md` index in the same commit — a stale index row is actively misleading. After an architectural decision, add an ADR in `docs/decisions/` and a one-line summary to its `README.md`.
 
+## Deferred follow-ups
+
+Improvements intentionally not done yet:
+
+- **Deprecate `tf-var-name` + `provider_token`.** The bespoke provider-token pair predates `tf_secret_vars` and was poorly designed from the start (review of #23): a provider token is just one more secret variable, so a `tf_secret_vars` entry already achieves the same masked `TF_VAR_*` export without the caller naming an env var. A later PR should design the migration path — every Terraform consumer moves off the pair, and removal is a breaking contract change (`v2`, or a deprecation-warning period on `v1` first).
+- **Consistent input naming.** The workflow inputs mix kebab case (`tf-var-name`, `working-directory`, `terraform-version`, `concurrency-group`, `plan-comment-marker`) and snake case (`tf_vars`, `tf_secret_vars`, `force_run`) (review of #23). Converging on one convention renames inputs — a breaking contract change — so fold it into the same `v2` design as the deprecation above.
+- **Separate the products from the self-CI more visibly.** GitHub discovers workflows only flat in `.github/workflows/` (no subdirectories), so the reusable products and the self-CI (`ci.yml`, `action-tests.yml`, `release.yml`) can only be separated by naming and docs — the status quo everywhere, but worth tightening (#23 follow-up). A product's filename is its public contract (consumers pin the full path), so the convention burdens the *internal* files: a **`self-` prefix** (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`) — it takes the slot the product family name occupies on the other filenames, and the rename is non-breaking, any time. Ideally add a self-CI guard asserting unprefixed workflows are `workflow_call`-only (accommodating the dogfooded Markdown calls). Renaming the products themselves (GitHub's `reusable-*` docs style) is a breaking contract change that would have to ride the `v2` batch above.
+
 ## Working in this repo with Claude Code
 
 Use the GitHub MCP (`mcp__github__*`) for PRs, CI status, and comments — there is no `gh` CLI. Trigger on-demand runs with `mcp__github__actions_run_trigger` (`workflow_id`, `ref`), surface the run URL (`https://github.com/flungo/github-workflows/actions/runs/<run_id>`), and report the outcome.

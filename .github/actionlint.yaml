@@ -1,0 +1,9 @@
+# actionlint's `job` context model does not yet include the workflow identity
+# properties (`job.workflow_repository` / `job.workflow_sha` — documented by
+# GitHub, and used by the Terraform workflows to fetch this repo's composite
+# actions at the workflow file's own commit; see ADR-009). Filter exactly that
+# false positive, only where the pattern is used.
+paths:
+  .github/workflows/terraform*.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'

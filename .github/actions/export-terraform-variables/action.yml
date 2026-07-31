@@ -1,0 +1,33 @@
+# Shared "export the Terraform variables" step for terraform.yml and
+# terraform-drift.yml. A reusable workflow cannot reference this action by a
+# local `./` path (that resolves against the *caller's* checkout), so the
+# workflows check out this repo at ${{ github.job_workflow_sha }} and use the
+# action from that checkout — always the same commit as the workflow file
+# itself. See ADR-009.
+name: Export Terraform variables
+description: >-
+  Export the provider token and the tf_secret_vars JSON map as TF_VAR_*
+  environment variables for the terraform steps that follow, masking every
+  secret value at the point of handling.
+inputs:
+  tf-var-name:
+    description: Env var name for the provider token, e.g. TF_VAR_github_token. Empty = no provider token.
+    default: ''
+  provider-token:
+    description: Provider credential, exported (masked) under ${tf-var-name}.
+    default: ''
+  secret-vars:
+    description: >-
+      Optional JSON object {"<var>": "<value>", ...} of extra secret Terraform
+      variables; each is exported as a masked TF_VAR_<var>.
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Export Terraform variables
+      shell: bash
+      env:
+        VAR_NAME: ${{ inputs.tf-var-name }}
+        PROVIDER_TOKEN: ${{ inputs.provider-token }}
+        TF_SECRET_VARS_JSON: ${{ inputs.secret-vars }}
+      run: '"$GITHUB_ACTION_PATH/export.sh"'

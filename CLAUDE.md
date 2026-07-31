@@ -8,7 +8,7 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 
 ## Repo layout
 
-- `.github/workflows/*.yml` — the reusable workflows and this repo's own self-CI (`ci.yml`).
+- `.github/workflows/*.yml` — the reusable workflows and this repo's own self-CI (`ci.yml`, `action-tests.yml`); `.github/actions/` — shared composite actions any of the reusable workflows can fetch at their own commit via `job.workflow_sha` ([ADR-009](docs/decisions/009-composite-action-via-workflow-identity-checkout.md)) — the Terraform family is the first consumer, not the scope.
 - `docs/` follows the [Divio/Diátaxis](https://diataxis.fr/) split, matching the sibling repos — each subdirectory has a `README.md` index:
   - `reference/` — information-oriented lookup: `terraform-workflow.md` (the Terraform CI standard), `terraform-provider-workflow.md` (the provider CI standard) and `markdown-validation.md` (the Markdown workflows, for any repo).
   - `runbooks/` — repeatable how-to guides: `adopting-terraform-workflows.md`, `adopting-terraform-provider-workflows.md`, `adopting-markdown-workflows.md`, `adopting-version-check.md`, `releasing.md`.
@@ -21,7 +21,7 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 - **The workflows are the product** — they contain no secrets; callers pass every credential. Keep them provider-agnostic (the Terraform provider token is a generic `provider_token` secret named by the caller's `tf-var-name` input). Never hard-code a repo, workspace, or token here.
 - **Pin actions and version this repo.** Consumers pin `@v1` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)). `release.yml` fast-forwards `v1` to `main` automatically on every merge, so fixes reach consumers with no bump step. A **breaking** input/secret change must bump `MAJOR_BRANCH` in `release.yml` (`v1` → `v2`) in the same PR — that reviewed one-line edit is the whole major-version decision, and it freezes the old major. Never create a `v1` tag (`@v1` would then be ambiguous), and never push a `v*` branch directly — it moves only via `release.yml` or a PR that targets it. The whole `v[0-9]*` namespace is **create-restricted** to the release App, so never name a working branch `v2`, `v1x` or similar: the push is rejected, and the message won't say why. See [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md); any change to inputs/secrets is a change to the contract — update the relevant adopting runbook and the consumers.
 - **Every consumer adopts the version check.** Onboarding any consumer includes the opt-in [`version-check` caller](docs/runbooks/adopting-version-check.md) — a one-line, credential-free workflow that flags the repo if a future major bump leaves it on a frozen `@vN`. Add it to every consumer we create, and to existing ones.
-- **Validate before it reaches `main`.** `ci.yml` runs actionlint and the repo's own Markdown checks on every PR; the merge that passes them is what advances `v1`. A workflow change is not done until CI is green.
+- **Validate before it reaches `main`.** `ci.yml` runs actionlint and the repo's own Markdown checks on every PR; `action-tests.yml` gives every composite action its own isolated test job (colocated `test.sh` + a wiring smoke step, with a `coverage` guard so a new action can't land untested). The merge that passes them is what advances `v1`; a workflow change is not done until CI is green.
 - **Git & docs conventions** follow the fleet standard (Conventional Commits, linear history, squash-vs-rebase, no fixup commits, PR-only landing) — the same as the consumer repos and Fabrizio's `code-review-workflow` skill. Never commit directly to `main`; work on a feature branch and land via PR.
 
 ## Documentation standards
@@ -32,7 +32,6 @@ Same rules as the sibling repos, following the Diátaxis split: docs are task-or
 
 Improvements intentionally not done yet — the linked ADR carries the full reasoning:
 
-- **Extract the duplicated `TF_VAR` export step to a composite action.** `terraform.yml` and `terraform-drift.yml` inline the same "export the provider token + `tf_secret_vars`" shell. Deferred because a reusable workflow must reference a shared action by full path (`flungo/github-workflows/.github/actions/…@v1`) — a local `./` action resolves against the *caller's* checkout — which creates a pre-merge testing chicken-and-egg (the action's change isn't on `@v1` until it merges). Revisit if we add a way to exercise an `@v1`-referenced action from a feature branch. ([ADR-008](docs/decisions/008-secret-terraform-variables.md))
 - **A non-secret extra-variables path.** `tf_secret_vars` (a `secrets:` entry) carries only masked secret values; the plain `tf_vars` name is reserved for a future non-secret `inputs:` mechanism, added when a consumer actually needs one. ([ADR-008](docs/decisions/008-secret-terraform-variables.md))
 
 ## Working in this repo with Claude Code

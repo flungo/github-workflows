@@ -1,0 +1,79 @@
+# Self-CI for the composite actions in .github/actions/ — not a reusable
+# workflow; consumers never call this. One isolated job per action, so a
+# failure names the action in the check list and actions never share a job:
+#
+#   <action-name>:  behaviour via the action's colocated test.sh, then a
+#                   static `uses:` wiring smoke step proving action.yml maps
+#                   its inputs (`uses:` can't be templated, so this file
+#                   gains one job per action — copy the pattern).
+#   coverage:       fails when an action directory lacks an executable
+#                   test.sh or a job here, so a new action can't land
+#                   untested.
+#
+# See ADR-009 for why the actions are exercised from this repo's own checkout.
+name: Action tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  export-terraform-variables:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Colocated tests (test.sh)
+        run: |
+          set -eu
+          # The rejection paths print ::error:: on purpose; suspend
+          # workflow-command processing so a passing run doesn't collect
+          # failure annotations.
+          resume_token="action-tests-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "::stop-commands::$resume_token"
+          if .github/actions/export-terraform-variables/test.sh; then
+            echo "::$resume_token::"
+          else
+            echo "::$resume_token::"
+            echo "::error::export-terraform-variables test.sh failed"
+            exit 1
+          fi
+
+      # Every value below is fake and exists only for the test.
+      - name: Wiring smoke test
+        uses: ./.github/actions/export-terraform-variables
+        with:
+          tf-var-name: TF_VAR_provider_credential
+          provider-token: fake-provider-credential-for-the-self-test
+          secret-vars: |
+            {"db_password": "fake-password\nwith-a-second-line", "api_key": "fake-api-key-value"}
+
+      - name: Assert the wired environment
+        run: |
+          set -eu
+          expected_password=$'fake-password\nwith-a-second-line'
+          [ "$TF_VAR_provider_credential" = "fake-provider-credential-for-the-self-test" ]
+          [ "$TF_VAR_db_password" = "$expected_password" ]
+          [ "$TF_VAR_api_key" = "fake-api-key-value" ]
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Every action has a test.sh and a job in this file
+        run: |
+          set -eu
+          missing=""
+          for dir in .github/actions/*/; do
+            name="$(basename "$dir")"
+            [ -x "$dir/test.sh" ] || missing="$missing $name(test.sh)"
+            grep -q "^  $name:" .github/workflows/action-tests.yml || missing="$missing $name(job)"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::composite actions missing tests:$missing — every action ships an executable test.sh and an isolated job in action-tests.yml"
+            exit 1
+          fi

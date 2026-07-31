@@ -1,5 +1,7 @@
 # Self-CI for this repository: lint the reusable workflows with actionlint, and
-# dogfood the repo's own reusable Markdown workflows against its docs.
+# dogfood the repo's own reusable Markdown workflows against its docs. The
+# composite actions are tested separately, one isolated job per action, in
+# action-tests.yml.
 name: CI
 
 on:

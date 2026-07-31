@@ -44,6 +44,6 @@ Masking covers the run *logs* only; the plan text also lands in the `terraform-p
 
 **Negative / trade-offs:**
 
-- The export step is duplicated in both workflows. Extracting it to a shared composite action was deferred: a reusable workflow must reference it by full path (`flungo/github-workflows/.github/actions/…@v1`, since a local `./` action resolves against the *caller's* checkout), which creates a pre-merge testing chicken-and-egg.
+- The export step is duplicated in both workflows. Extracting it to a shared composite action was deferred: a reusable workflow must reference it by full path (`flungo/github-workflows/.github/actions/…@v1`, since a local `./` action resolves against the *caller's* checkout), which creates a pre-merge testing chicken-and-egg. *(Since resolved — [ADR-009](009-composite-action-via-workflow-identity-checkout.md) extracts the step and fetches it at the workflow file's own commit instead of `@v1`.)*
 - Per-line masking registers every line of every value for the whole job, so a short or common value redacts later log output — mitigated by documenting that values must be genuinely secret.
 - Plan-output redaction can't be enforced by the workflow; it relies on the consumer declaring `sensitive = true`.

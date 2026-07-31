@@ -51,6 +51,8 @@ jobs:
           provider-token: fake-provider-credential-for-the-self-test
           secret-vars: |
             {"db_password": "fake-password\nwith-a-second-line", "api_key": "fake-api-key-value"}
+          vars: |
+            {"environment": "self-test", "replica_count": "3"}
 
       - name: Assert the wired environment
         run: |
@@ -59,6 +61,8 @@ jobs:
           [ "$TF_VAR_provider_credential" = "fake-provider-credential-for-the-self-test" ]
           [ "$TF_VAR_db_password" = "$expected_password" ]
           [ "$TF_VAR_api_key" = "fake-api-key-value" ]
+          [ "$TF_VAR_environment" = "self-test" ]
+          [ "$TF_VAR_replica_count" = "3" ]
 
   coverage:
     runs-on: ubuntu-latest

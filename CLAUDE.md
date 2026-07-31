@@ -28,12 +28,6 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 
 Same rules as the sibling repos, following the Diátaxis split: docs are task-oriented (`runbooks/`), information-oriented (`reference/`), or decision-oriented (`decisions/`); plans (`plans/`) are one-time and retired when done. After any change under `docs/`, refresh the relevant `README.md` index in the same commit — a stale index row is actively misleading. After an architectural decision, add an ADR in `docs/decisions/` and a one-line summary to its `README.md`.
 
-## Deferred follow-ups
-
-Improvements intentionally not done yet — the linked ADR carries the full reasoning:
-
-- **A non-secret extra-variables path.** `tf_secret_vars` (a `secrets:` entry) carries only masked secret values; the plain `tf_vars` name is reserved for a future non-secret `inputs:` mechanism, added when a consumer actually needs one. ([ADR-008](docs/decisions/008-secret-terraform-variables.md))
-
 ## Working in this repo with Claude Code
 
 Use the GitHub MCP (`mcp__github__*`) for PRs, CI status, and comments — there is no `gh` CLI. Trigger on-demand runs with `mcp__github__actions_run_trigger` (`workflow_id`, `ref`), surface the run URL (`https://github.com/flungo/github-workflows/actions/runs/<run_id>`), and report the outcome.

@@ -9,8 +9,9 @@
 # (the TF_VAR_* env var name) and the `provider_token` secret, so this file
 # names no specific provider. Any further secret values the config needs (e.g. a
 # database password or an API key a resource is configured with) come through the
-# `tf_secret_vars` secret — a JSON map exported as masked TF_VAR_* env vars — so this
-# file names no specific variable either.
+# `tf_secret_vars` secret — a JSON map exported as masked TF_VAR_* env vars — and
+# non-secret extra variables through the `tf_vars` input the same way (unmasked) —
+# so this file names no specific variable either.
 #
 # working-directory is set per-step (not via `defaults.run`): defaults.run
 # does not evaluate ${{ }} expressions.
@@ -41,6 +42,15 @@ on:
         default: terraform-plan
       tf-var-name:
         description: Env var name for the provider token, e.g. TF_VAR_github_token. Empty = no provider token.
+        type: string
+        default: ''
+      tf_vars:
+        description: >-
+          Optional JSON object {"<var>": "<value>", ...} of extra *non-secret*
+          Terraform variables, each exported as an unmasked TF_VAR_<var>;
+          values are strings (multi-line is fine). Workflow inputs are plainly
+          visible in the run — a secret value belongs in the tf_secret_vars
+          secret instead, never here.
         type: string
         default: ''
       operation:
@@ -103,6 +113,7 @@ jobs:
           tf-var-name: ${{ inputs.tf-var-name }}
           provider-token: ${{ secrets.provider_token }}
           secret-vars: ${{ secrets.tf_secret_vars }}
+          vars: ${{ inputs.tf_vars }}
 
       - uses: hashicorp/setup-terraform@v3
         with:

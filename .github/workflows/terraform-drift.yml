@@ -33,6 +33,15 @@ on:
         description: Env var name for the provider token, e.g. TF_VAR_github_token. Empty = none.
         type: string
         default: ''
+      tf_vars:
+        description: >-
+          Optional JSON object {"<var>": "<value>", ...} of extra *non-secret*
+          Terraform variables, each exported as an unmasked TF_VAR_<var>;
+          values are strings. A secret value belongs in the tf_secret_vars
+          secret instead. Mirror the caller's terraform.yml so scheduled drift
+          runs the same config.
+        type: string
+        default: ''
       force_run:
         description: Run even if remediation is paused (variable or .drift-paused file).
         type: boolean
@@ -111,6 +120,7 @@ jobs:
           tf-var-name: ${{ inputs.tf-var-name }}
           provider-token: ${{ secrets.provider_token }}
           secret-vars: ${{ secrets.tf_secret_vars }}
+          vars: ${{ inputs.tf_vars }}
 
       - uses: hashicorp/setup-terraform@v3
         if: steps.pause.outputs.paused != 'true'

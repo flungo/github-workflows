@@ -122,7 +122,7 @@ jobs:
           secret-vars: ${{ secrets.tf_secret_vars }}
           vars: ${{ inputs.tf_vars }}
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         if: steps.pause.outputs.paused != 'true'
         with:
           terraform_version: ${{ inputs.terraform-version }}

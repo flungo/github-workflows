@@ -6,9 +6,9 @@
 # itself. See ADR-009.
 name: Export Terraform variables
 description: >-
-  Export the provider token and the tf_secret_vars JSON map as TF_VAR_*
-  environment variables for the terraform steps that follow, masking every
-  secret value at the point of handling.
+  Export the provider token and the tf_secret_vars / tf_vars JSON maps as
+  TF_VAR_* environment variables for the terraform steps that follow, masking
+  every secret value at the point of handling.
 inputs:
   tf-var-name:
     description: Env var name for the provider token, e.g. TF_VAR_github_token. Empty = no provider token.
@@ -21,6 +21,11 @@ inputs:
       Optional JSON object {"<var>": "<value>", ...} of extra secret Terraform
       variables; each is exported as a masked TF_VAR_<var>.
     default: ''
+  vars:
+    description: >-
+      Optional JSON object {"<var>": "<value>", ...} of extra non-secret
+      Terraform variables; each is exported as an unmasked TF_VAR_<var>.
+    default: ''
 runs:
   using: composite
   steps:
@@ -30,4 +35,5 @@ runs:
         VAR_NAME: ${{ inputs.tf-var-name }}
         PROVIDER_TOKEN: ${{ inputs.provider-token }}
         TF_SECRET_VARS_JSON: ${{ inputs.secret-vars }}
+        TF_VARS_JSON: ${{ inputs.vars }}
       run: '"$GITHUB_ACTION_PATH/export.sh"'

@@ -16,6 +16,7 @@ How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v1`.
 | `plan-comment-marker` | `<!-- terraform-plan -->` | Hidden marker keying this repo's upserted plan comment |
 | `plan-artifact-name` | `terraform-plan` | Name the plan (`plan.jsonl`, `plan.txt`) is uploaded under, for follow-on jobs to consume |
 | `tf-var-name` | `''` | Env var name for the provider token, e.g. `TF_VAR_github_token` |
+| `tf_vars` | `''` | JSON map `{"<var>":"<value>"}` of extra *non-secret* vars (string values), each exported as an unmasked `TF_VAR_<var>` — secrets go in the `tf_secret_vars` secret instead |
 | `operation` | `plan` | Pass through the caller's `workflow_dispatch` operation |
 
 ### Secrets
@@ -68,6 +69,16 @@ The workflow exports each entry as a masked `TF_VAR_<key>` (here `TF_VAR_db_pass
 
 **Declare the consuming Terraform variable `sensitive = true`.** `::add-mask::` keeps each value out of the run *logs*, but the plan text also lands unmasked in the `terraform-plan` artifact and the upserted PR comment (and, from drift, in the `drift` issue) — only `sensitive` keeps a value out of plan output. If the repo also runs `terraform-drift.yml`, pass the same `tf_secret_vars` there too (below) so scheduled drift runs the same config rather than perpetually re-planning the missing variables.
 
+To pass **extra non-secret variables** — configuration knobs the repo would otherwise hard-code, not credentials — use the `tf_vars` **input**, the same JSON-map shape without the masking:
+
+```yaml
+    with:
+      tf-var-name: TF_VAR_github_token
+      tf_vars: '{"environment": "production", "replica_count": "3"}'
+```
+
+Each entry is exported as an unmasked `TF_VAR_<key>`. An input is plainly visible in the run, so a secret never belongs here — that's what `tf_secret_vars` is for, and the two paths are kept distinct on purpose. Setting the same variable through more than one path (`tf_vars`, `tf_secret_vars`, `tf-var-name`) fails the export loudly rather than silently letting one win.
+
 ### Consuming the plan artifact (follow-on jobs)
 
 A job that `uses:` a reusable workflow can't add steps to it, so anything that must run *after* the plan lives in a **separate job** that `needs:` the caller's Terraform job and downloads the plan artifact (default name `terraform-plan` — see [the contract](../reference/terraform-workflow.md#plan-artifact)). Gate it on the Terraform job's `result` — and note the `always() &&`: a job whose `needs` failed is **skipped by default** unless its `if` uses a status function, so a bare `needs.terraform.result == 'failure'` self-skips in exactly the case (a failed plan) it exists to handle. Because the artifact is the only contract, upstream changes to the plan sequence never ripple into the follow-on job:
@@ -93,7 +104,7 @@ jobs:
 
 ## `terraform-drift.yml`
 
-Opt-in. Same `working-directory` / `terraform-version` / `concurrency-group` / `tf-var-name` inputs as above, plus `force_run` (boolean). Same secrets — **including `tf_secret_vars`**: if the config consumes extra secret values, mirror the `terraform.yml` caller's `tf_secret_vars` here, or scheduled drift will fail or perpetually re-plan the missing variables (and it pastes plan output into the `drift` issue, so the same `sensitive = true` guidance applies). The caller keeps the `schedule` trigger — reusable workflows can't be scheduled directly.
+Opt-in. Same `working-directory` / `terraform-version` / `concurrency-group` / `tf-var-name` / `tf_vars` inputs as above, plus `force_run` (boolean). Same secrets — **including `tf_secret_vars`**: if the config consumes extra variables, mirror the `terraform.yml` caller's `tf_secret_vars` (and `tf_vars`) here, or scheduled drift will fail or perpetually re-plan the missing variables (and it pastes plan output into the `drift` issue, so the same `sensitive = true` guidance applies). The caller keeps the `schedule` trigger — reusable workflows can't be scheduled directly.
 
 ```yaml
 name: Terraform Drift Remediation

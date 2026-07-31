@@ -12,7 +12,7 @@ These cover the standard HashiCorp scaffold (build/lint/test, `tfplugindocs` doc
 The PR/push gate: `build` (build + vet), `lint` (gofmt + golangci-lint), `test` (unit), and an optional `docs` sync check.
 
 | Input | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `go-version-file` | `go.mod` | File the Go version is read from |
 | `golangci-lint-version` | `v2.5.0` | golangci-lint to install — must be v2.x for a v2-format `.golangci.yml` |
 | `terraform-version` | `latest` | Terraform used to render docs for the sync check |
@@ -61,7 +61,7 @@ Regenerates the Registry docs and commits them back to the branch, so contributo
 Pair it with `check-docs: true` on `terraform-provider-test.yml` (the default), which fails the default branch if committed docs ever drift.
 
 | Input | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `go-version-file` | `go.mod` | File the Go version is read from |
 | `terraform-version` | `latest` | Terraform used to render the docs |
 | `provider-name` | *(derived)* | Provider's Terraform name; empty derives it from the repo name (strips the `terraform-provider-` prefix) |
@@ -90,13 +90,13 @@ GoReleaser build + publish on a `v*` tag (or `workflow_dispatch` with a version)
 Signed when the GPG secrets are present, unsigned otherwise (early testing only — neither registry accepts an unsigned release).
 
 | Input | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `version` | `''` | Tag to release (e.g. `v0.1.0`); required on `workflow_dispatch`, ignored on tag push |
 | `goreleaser-version` | `~> v2` | GoReleaser version constraint |
 | `go-version-file` | `go.mod` | File the Go version is read from |
 
 | Secret | Required | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `GPG_PRIVATE_KEY` | No | ASCII-armored GPG private key registered with the registries; absent = unsigned |
 | `PASSPHRASE` | No | Passphrase for the GPG key |
 

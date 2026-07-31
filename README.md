@@ -11,7 +11,7 @@ Three families:
 ## Reusable workflows
 
 | Workflow | Purpose |
-|---|---|
+| --- | --- |
 | [`terraform.yml`](.github/workflows/terraform.yml) | Terraform plan on PR (posted as a PR comment), apply on merge to the default branch or on `workflow_dispatch` |
 | [`terraform-drift.yml`](.github/workflows/terraform-drift.yml) | Daily drift remediation with GitHub-issue notifications (opt-in; for repos with auto-rotating credentials) |
 | [`terraform-provider-test.yml`](.github/workflows/terraform-provider-test.yml) | Terraform provider CI: build + vet, gofmt + golangci-lint, unit tests, and an optional docs-in-sync check |

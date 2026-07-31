@@ -26,7 +26,7 @@ This workflow imposes **no** rules — the caller's `.markdownlint-cli2.jsonc` i
 `MD024` is set to `siblings_only` so docs can repeat subsection names under different parents. That leaves one narrow gap in the "someone adds a duplicate of a heading that was already linked" risk:
 
 | Case | Link outcome | Caught by |
-|---|---|---|
+| --- | --- | --- |
 | New duplicate is a **sibling** (same parent) | — | **MD024 `siblings_only`** blocks it |
 | Non-sibling, added **after** the linked heading | still correct | no breakage |
 | Non-sibling, added **before** the linked heading | silently redirects to the new heading | **neither** (anchor still resolves) |

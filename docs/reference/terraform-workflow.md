@@ -9,7 +9,7 @@ State lives in HCP Terraform (org `flungo`), in **Local execution mode**: HCP pr
 ## Workflows & triggers
 
 | Workflow | Trigger | Effect |
-|---|---|---|
+| --- | --- | --- |
 | [`terraform.yml`](../../.github/workflows/terraform.yml) | `pull_request` | `plan`; posts/updates a plan comment on the PR |
 | `terraform.yml` | `push` to the default branch | `apply` |
 | `terraform.yml` | `workflow_dispatch` (`plan`/`apply`) | on-demand plan or apply |

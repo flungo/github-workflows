@@ -10,7 +10,7 @@ A `flungo` provider is the standard HashiCorp scaffold — a Go module on the Pl
 That scaffold's CI is boilerplate and lives here; anything provider-specific stays in the consumer.
 
 | Concern | Where it lives |
-|---|---|
+| --- | --- |
 | Build + vet, gofmt + golangci-lint, unit tests, docs-in-sync check | `terraform-provider-test.yml` (this repo) |
 | Regenerate + commit Registry docs on a branch | `terraform-provider-docs.yml` (this repo) |
 | GoReleaser signed publish on a tag | `terraform-provider-release.yml` (this repo) |
@@ -23,7 +23,7 @@ A reusable workflow composes at the **job** level, so the caller mixes the share
 ## Workflows & triggers
 
 | Workflow | Trigger (on the caller) | Effect |
-|---|---|---|
+| --- | --- | --- |
 | [`terraform-provider-test.yml`](../../.github/workflows/terraform-provider-test.yml) | `pull_request`, `push` to the default branch | `build`, `lint`, `test`, and (optional) `docs` sync check |
 | [`terraform-provider-docs.yml`](../../.github/workflows/terraform-provider-docs.yml) | `push` to non-default branches | regenerate docs and commit them back to the branch |
 | [`terraform-provider-release.yml`](../../.github/workflows/terraform-provider-release.yml) | `push` of a `v*` tag; `workflow_dispatch` (version) | GoReleaser build + publish |

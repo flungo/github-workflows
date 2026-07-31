@@ -9,7 +9,7 @@ How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v1`.
 ### Inputs
 
 | Input | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `working-directory` | `.` | Root module directory (e.g. `owners/flungo` for a directory-per-owner repo) |
 | `terraform-version` | `latest` | Passed to `setup-terraform` |
 | `concurrency-group` | `terraform` | Share with the drift caller so plan/apply and drift never overlap |
@@ -22,7 +22,7 @@ How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v1`.
 ### Secrets
 
 | Secret | Required | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `TF_TOKEN_APP_TERRAFORM_IO` | yes | HCP state backend |
 | `provider_token` | no | Provider credential, exported as `${tf-var-name}` |
 | `tf_secret_vars` | no | JSON map `{"<var>":"<value>"}` of extra *secret* vars (string values), each exported as a masked `TF_VAR_<var>`; declare the consuming variable `sensitive` |

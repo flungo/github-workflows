@@ -67,7 +67,7 @@ The default `GITHUB_TOKEN` (`github-actions[bot]`) generally cannot be a ruleset
 Inventory — everything this identity adds to the repo:
 
 | Item | Kind | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | Release App | GitHub App owned by `flungo`, installed on **this repo only**, repository permission **Contents: read & write** and nothing else | The push identity; the **bypass actor** on the `v*` ruleset |
 | `RELEASE_APP_ID` | Actions **variable** on this repo | The App's ID (not sensitive). Required — `release.yml` fails without it |
 | `RELEASE_APP_PRIVATE_KEY` | Actions **secret** on this repo | A private key generated for the App (PEM), used only to mint the in-run token |

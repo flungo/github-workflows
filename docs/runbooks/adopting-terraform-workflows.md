@@ -133,55 +133,51 @@ jobs:
 Every `flungo`-owned repository is managed as code in
 [`terraform-github`](https://github.com/flungo/terraform-github), and its
 `standard-repository` module has a `terraform` flag meaning **"this repository
-follows Fabrizio's Terraform standards"** — that is, it calls the workflows above
-under the conventional names. Setting it provisions the secrets those workflows read and
-requires the check they report, so adopting these workflows is two changes, not
-one.
+follows Fabrizio's Terraform standards"** — that is, it calls the workflows above under the conventional names.
+Setting it provisions the secrets those workflows read and requires the check they report, so adopting these workflows is two changes, not one.
 
 **Name things conventionally, or the flag does not fit.**
 
-- **The calling job must be named `terraform`.** A check's context is
-  `<caller job id> / <reusable job id>`, so this caller reports
-  `terraform / terraform` — the string `terraform-github` requires. A caller job
-  named anything else reports a different context, and the required check would
-  never be satisfied.
-- **Use the conventional secret names** — `TF_TOKEN_APP_TERRAFORM_IO` for the HCP
-  backend, and the repository's own provider-token secret for `provider_token`.
-  `terraform-github` creates the former; it cannot create a secret the caller then
-  reads under a different name.
+- **The calling job must be named `terraform`.**
+  A check's context is `<caller job id> / <reusable job id>`, so this caller reports `terraform / terraform` — the string `terraform-github` requires.
+  A caller job named anything else reports a different context, and the required check would never be satisfied.
+- **Use the conventional secret names** — `TF_TOKEN_APP_TERRAFORM_IO` for the HCP backend, and the repository's own provider-token secret for `provider_token`.
+  `terraform-github` creates the former; it cannot create a secret the caller then reads under a different name.
 
-**Then set `terraform = true`** on that repository's module call in
-`owners/<owner>/<repo>.tf`. That attaches `TF_TOKEN_APP_TERRAFORM_IO` and adds
-`terraform / terraform` to the repository's required status checks.
+**Then set `terraform = true`** on that repository's module call in `owners/<owner>/<repo>.tf`.
+That attaches `TF_TOKEN_APP_TERRAFORM_IO` and adds `terraform / terraform` to the repository's required status checks.
 
 ### Order the two changes flag-first
 
-Enable the flag in `terraform-github` and let it apply **before** opening the pull
-request that adds the caller here. The secret then exists when these workflows
-first run; reversed, that pull request's own run fails on a missing
-`TF_TOKEN_APP_TERRAFORM_IO`.
+Enable the flag in `terraform-github` and let it apply **before** opening the pull request that adds the caller here.
+The secret then exists when these workflows first run; reversed, that pull request's own run fails on a missing `TF_TOKEN_APP_TERRAFORM_IO`.
 
-Requiring the check before anything reports it looks like it should deadlock the
-repository, and does not: a `pull_request` run uses the workflow file from **the
-pull request's own head**, so the pull request that adds the caller also runs it,
-reports the context, and satisfies its own requirement.
+Requiring the check before anything reports it looks like it should deadlock the repository, and does not: a `pull_request` run uses the workflow file from **the pull request's own head**, so the pull request that adds the caller also runs it, reports the context, and satisfies its own requirement.
 
-Pull requests already open when the flag lands *are* blocked — they predate the
-caller, so nothing reports their check — until the adopting pull request merges and
-they rebase onto it. A queue, not a deadlock, but worth landing the adoption
-promptly if others are in flight.
+Pull requests already open when the flag lands *are* blocked — they predate the caller, so nothing reports their check — until the adopting pull request merges and they rebase onto it.
+A queue, not a deadlock, but worth landing the adoption promptly if others are in flight.
+
+### The check is strict: merging needs an up-to-date branch
+
+Requiring the check has a third consequence, and it outlives the adoption.
+`terraform-github` also requires the branch to be **up to date with its base** before a pull request can merge ([ADR-011](https://github.com/flungo/terraform-github/blob/main/docs/decisions/011-strict-required-status-checks.md)) — a check that passed against a stale base says nothing about the merge.
+It is encoded in the branch-protection module rather than exposed, so it arrives with the flag and cannot be declined separately; a repository requiring no check is unaffected.
+
+In practice that means the rebase above stops being a one-off.
+Every merge to the default branch leaves the other open pull requests out of date, and each must be brought forward and re-run before it can merge in turn.
+GitHub's **Update branch** button appears once this is in force, and its dropdown offers **Update with rebase** — the linear-history-preserving option, and the one to use here.
+
+The mitigations are worth knowing before the queue is felt rather than after:
+stacked pull requests for genuinely dependent work, and delegating the rebase-push-retry loop to an agent for everything else.
+Merge queue is not among them for these repositories — it is gated on organisation ownership, and every repository here is owned by a personal account.
 
 ### Where the workflows cannot run as-is
 
-A repository that cannot run the baseline — for example one whose Terraform targets
-a host only reachable from a private network, where a GitHub-hosted runner cannot
-reach it — should still set `terraform = true` if it follows the standards
-otherwise, and drop the unreportable context via `terraform-github`'s
-`excluded_status_checks`. That keeps the secrets and the settings while being
-honest that the check cannot pass yet.
+A repository that cannot run the baseline — for example one whose Terraform targets a host only reachable from a private network, where a GitHub-hosted runner cannot reach it — should still set `terraform = true` if it follows the standards otherwise, and drop the unreportable context via `terraform-github`'s `excluded_status_checks`.
+That keeps the secrets and the settings while being honest that the check cannot pass yet.
+Dropping the context drops its strictness with it: the up-to-date-branch requirement rides the required check, so a repository with none is not subject to it.
 
-The better fix is to make the workflow runnable there rather than to fork it — see
-the note on `stalwart.flungo.net` below.
+The better fix is to make the workflow runnable there rather than to fork it — see the note on `stalwart.flungo.net` below.
 
 ## Per-consumer notes
 

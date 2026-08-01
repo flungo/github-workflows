@@ -67,23 +67,18 @@ State what is true now: what changed, and what it replaced, belong in the commit
 
 ## Deferred follow-ups
 
-Improvements intentionally not done yet:
+Improvements intentionally not done yet.
+The three major-shaping items from the #23 review are now scoped in **[`docs/plans/v3-cut.md`](docs/plans/v3-cut.md)** — the plan is the source of truth for what rides the v3 cut (v2 was claimed by the ADR-010/011/012 naming changes), the pre-cut work on the current major, and each consumer's migration path:
 
-- **Deprecate `tf-var-name` + `provider_token`.**
-  The bespoke provider-token pair predates `tf_secret_vars` and was poorly designed from the start (review of #23): a provider token is just one more secret variable, so a `tf_secret_vars` entry already achieves the same masked `TF_VAR_*` export without the caller naming an env var.
-  A later PR should design the migration path — every Terraform consumer moves off the pair, and removal is a breaking contract change (`v3`, or a deprecation-warning period on `v2` first).
-- **Consistent input naming.**
-  The workflow inputs mix kebab case (`tf-var-name`, `working-directory`, `terraform-version`, `concurrency-group`, `plan-comment-marker`) and snake case (`tf_vars`, `tf_secret_vars`, `force_run`) (review of #23).
-  Converging on one convention renames inputs — a breaking contract change — so fold it into the same `v3` design as the deprecation above.
-- **Separate the products from the self-CI more visibly.**
-  GitHub discovers workflows only flat in `.github/workflows/` (no subdirectories), so the reusable products and the self-CI (`ci.yml`, `action-tests.yml`, `release.yml`) can only be separated by naming and docs — the status quo everywhere, but worth tightening (#23 follow-up).
-  A product's filename is its public contract (consumers pin the full path), so the convention burdens the *internal* files: a **`self-` prefix** (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`) — it takes the slot the product family name occupies on the other filenames.
+- **Deprecate `tf-var-name` + `provider_token`** — deprecate-first: a current-major `::warning::` lands pre-cut, removal rides v3 (plan § scope item 1).
+- **Consistent input naming** — kebab-case inputs, `UPPER_SNAKE_CASE` secrets; the renames ride v3 (plan § scope item 2).
+- **Separate the products from the self-CI more visibly** — the `self-` prefix (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`) plus the unprefixed-means-`workflow_call`-only guard is non-breaking and lands *ahead of* the cut (plan § pre-cut work).
   `release.yml` is the exception to "non-breaking, any time": every consumer's `version-check` reads `STABLE_MAJOR` out of it by path from `main` ([ADR-014](docs/decisions/014-promote-a-major-to-stable-by-hand.md)), and a consumer frozen on an older major runs that major's copy of the reader — so make the reader tolerate both paths, ship that, and only then rename.
-  Ideally add a self-CI guard asserting unprefixed workflows are `workflow_call`-only (accommodating the dogfooded Markdown calls).
-  Renaming the products themselves (GitHub's `reusable-*` docs style) is a breaking contract change that would have to ride the `v3` batch above.
+  Renaming the products themselves (GitHub's `reusable-*` docs style) was reconsidered and re-rejected (plan § considered and rejected) — ADR-012's one-file `flungo-workflows.yml` rename is the recorded, forced exception.
 
 ## Active work
 
+- [`docs/plans/v3-cut.md`](docs/plans/v3-cut.md) — the v3 major: pre-cut work on `v2`, the staged cut → settle → adopt → promote procedure ([ADR-014](docs/decisions/014-promote-a-major-to-stable-by-hand.md)), and the per-consumer migrations.
 - [`docs/plans/mdformat-sembr-upstream-fixes.md`](docs/plans/mdformat-sembr-upstream-fixes.md) — track the mdformat-sembr patches and proposals open upstream, and the conditions under which [ADR-017](docs/decisions/017-keep-home-grown-sembr-tooling-over-mdformat-sembr.md) reopens the `reflow.py` question.
 
 ## Working in this repo with Claude Code

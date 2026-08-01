@@ -9,10 +9,12 @@
     // Allow repeated subsection headings under different parents (e.g. an ADR's
     // Context / Decision / Consequences recurring across records).
     "MD024": { "siblings_only": true },
-    // Pin the compact table style rather than leaving MD060 to infer it. The
-    // default "consistent" infers per table and picks "aligned" — every cell
-    // padded to column width — for tables no row disambiguates, which --fix
-    // will not produce and which is not the style written here.
+    // Compact tables, one space each side of every pipe. Pinned rather than
+    // left to MD060's ambiguous default ("consistent" infers per table, and
+    // picks "aligned" where no row disambiguates). Same reasoning as MD013
+    // above: a diff should be the size of the change. Under "aligned" cell
+    // width is shared state — every cell is padded to its column's widest, so
+    // one edit reflows the whole table and one long cell taxes every row.
     "MD060": { "style": "compact" }
   }
 }

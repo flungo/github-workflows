@@ -101,7 +101,7 @@ jobs:
       # This repo's composite actions can't be referenced by a local `./` path
       # from a reusable workflow (it would resolve against the caller's
       # checkout), so fetch them at the exact commit this workflow file was
-      # taken from: the action always matches the ref the caller pinned — @v1,
+      # taken from: the action always matches the ref the caller pinned — @v2,
       # or a feature branch under test. See ADR-009.
       - name: Fetch workflow actions
         if: steps.pause.outputs.paused != 'true'

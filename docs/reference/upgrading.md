@@ -9,12 +9,11 @@ One section per major, newest first. Scope is deliberately narrow — see [ADR-0
 
 **Each section assumes you are coming from the immediately preceding major.** Moving more than one major means working through each section in turn, oldest first: `v1` to `v3` is the `v2` section and then the `v3` section, in that order, not a jump straight to the last one. Sections are not written to be skipped, and a later one may depend on the earlier one having been completed.
 
-If you are here because the [`version-check`](../runbooks/adopting-version-check.md) job opened an issue in your repository, that issue links to every section between the major you pin and the current one.
+If you are here because the [`version-check`](../runbooks/adopting-flungo-workflows.md) job opened an issue in your repository, that issue links to every section between the major you pin and the current one.
 
 ## v2
 
-> **Not yet cut.** This section is a draft of what the `v2` migration will require, published with the decisions behind it — [ADR-011](../decisions/011-reusable-job-ids-are-the-check-name.md) and [ADR-012](../decisions/012-flungo-workflows-meta-workflow.md).
-> It becomes current when `MAJOR_BRANCH` is bumped.
+The decisions behind it: [ADR-011](../decisions/011-reusable-job-ids-are-the-check-name.md) and [ADR-012](../decisions/012-flungo-workflows-meta-workflow.md).
 
 ### What breaks
 

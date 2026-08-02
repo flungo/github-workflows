@@ -1,10 +1,14 @@
-# Reusable "am I on a frozen major?" check — opt-in, per-consumer.
+# The jobs every consumer of this repository should run — the ones that keep a
+# consumer's *relationship with flungo/github-workflows* healthy, as opposed to
+# anything about the consumer's own code. Opt-in, per-consumer. Named for this
+# repository because that is the family it describes; see ADR-012, and
+# docs/runbooks/adopting-flungo-workflows.md for how to adopt it.
 #
-# A consumer calls this on a schedule. It compares the flungo/github-workflows
-# major(s) the consumer pins (read from the consumer's own workflow files)
-# against the latest major published here, and — when the consumer is pinning a
-# now-frozen major — opens (and later closes) a single tracking issue in the
-# CONSUMER's own repo. See docs/runbooks/adopting-version-check.md.
+# version-check — "am I on a frozen major?". A consumer calls this on a
+# schedule. It compares the flungo/github-workflows major(s) the consumer pins
+# (read from the consumer's own workflow files) against the latest major
+# published here, and — when the consumer is pinning a now-frozen major — opens
+# (and later closes) a single tracking issue in the CONSUMER's own repo.
 #
 # The issue names the upgrade guide sections between the pinned major and the
 # current one, in order, so the notice that a consumer is behind also says how
@@ -17,16 +21,13 @@
 # own repo-scoped GITHUB_TOKEN (public repo, so plain read works) and writes the
 # issue in the caller's repo. The caller must grant `issues: write` (a reusable
 # workflow's permissions only cap the token — see the adoption guide).
-name: Version check
+name: flungo/github-workflows
 
 on:
   workflow_call:
 
 jobs:
   version-check:
-    # Named for the upstream repo it checks, so the check reads unambiguously in
-    # a consumer's checks list (not "a version check of something unspecified").
-    name: github-workflows version check
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,7 +38,7 @@ jobs:
       # This repo's composite actions can't be referenced by a local `./` path
       # from a reusable workflow (it would resolve against the caller's
       # checkout), so fetch them at the exact commit this workflow file was
-      # taken from: the action always matches the ref the caller pinned — @v1,
+      # taken from: the action always matches the ref the caller pinned — @v2,
       # or a feature branch under test. See ADR-009.
       - name: Fetch workflow actions
         uses: actions/checkout@v7

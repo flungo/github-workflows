@@ -1,8 +1,8 @@
 # Adopting the Markdown workflows
 
-How any repo with Markdown calls `markdown-lint.yml` and `markdown-links.yml`, and gets its docs passing them. Pin `@v1`. These are **not** Terraform-specific — most `flungo` repos with a `docs/` tree should adopt them. See [`markdown-validation.md`](../reference/markdown-validation.md) for what they do and [ADR-002](../decisions/002-markdown-validation-tooling.md) for why.
+How any repo with Markdown calls `markdown-lint.yml` and `markdown-links.yml`, and gets its docs passing them. Pin `@v2`. These are **not** Terraform-specific — most `flungo` repos with a `docs/` tree should adopt them. See [`markdown-validation.md`](../reference/markdown-validation.md) for what they do and [ADR-002](../decisions/002-markdown-validation-tooling.md) for why.
 
-> **Highly recommended:** also adopt the [version check](adopting-version-check.md) — a one-line opt-in caller that raises an issue in this repo if a future major bump ever leaves it pinning a frozen `@vN`. Especially worth it when this is the first `github-workflows` workflow the repo adopts.
+> **Highly recommended:** also adopt [`flungo-workflows`](adopting-flungo-workflows.md) — a one-line opt-in caller that raises an issue in this repo if a future major bump ever leaves it pinning a frozen `@vN`. Especially worth it when this is the first `github-workflows` workflow the repo adopts.
 
 ## `markdown-lint.yml`
 
@@ -15,7 +15,7 @@ on:
   push: { branches: [main], paths: ['**/*.md', '.markdownlint-cli2.jsonc', '.github/workflows/markdown-lint.yml'] }
 jobs:
   markdown-lint:
-    uses: flungo/github-workflows/.github/workflows/markdown-lint.yml@v1
+    uses: flungo/github-workflows/.github/workflows/markdown-lint.yml@v2
 ```
 
 ## `markdown-links.yml`
@@ -35,7 +35,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-    uses: flungo/github-workflows/.github/workflows/markdown-links.yml@v1
+    uses: flungo/github-workflows/.github/workflows/markdown-links.yml@v2
     secrets:
       LYCHEE_GITHUB_TOKEN: ${{ secrets.LYCHEE_GITHUB_TOKEN }}
 ```
@@ -67,6 +67,7 @@ Verify each check as you add it:
 ### The external sweep does not need a manufactured failure
 
 Breaking a link on purpose to watch the sweep open an issue is **not** part of adopting the workflows in a new repo. The create/update/close lifecycle — one issue opened, updated in place on the next dispatch rather than duplicated, and closed once a later run comes back clean — is behaviour of the pinned reusable workflow, identical in every caller, so it is verified once per major version rather than in each adopting repo. It was verified for `@v1` in [flungo/claude-plugins#12](https://github.com/flungo/claude-plugins/pull/12).
+`v2` renamed the job (`external`, so the context is now `markdown-links / external`) and changed nothing about the lifecycle itself, so that verification carries over.
 
 Nor does a clean run hide a missing `issues: write` grant. Because the reusable workflow requests that permission, a caller that does not grant it fails at startup — see [§ `markdown-links.yml`](#markdown-linksyml) above — so a dispatch that runs at all has already proved the grant is adequate. What is genuinely per-repo is the URL set and the token, and one clean dispatch exercises both.
 
@@ -124,7 +125,7 @@ Recorded from real adoptions, several from Claude Code Web sessions. Reading the
 
 **Match the CI tool versions locally, or you chase findings CI never reports.**
 
-- `DavidAnson/markdownlint-cli2-action@v19` pins a specific `markdownlint-cli2` (e.g. 0.17.2 / markdownlint 0.37.4). A newer `markdownlint-cli2` installed locally carries rules the pinned CI version does **not** have — e.g. `MD060` (table-column-style), which fires on every table and produces dozens of findings CI will never raise. Pin the local tool to the CI version: `npm install markdownlint-cli2@<pinned>`.
+- `DavidAnson/markdownlint-cli2-action@v29` pins a specific `markdownlint-cli2` (e.g. 0.17.2 / markdownlint 0.37.4). A newer `markdownlint-cli2` installed locally carries rules the pinned CI version does **not** have — e.g. `MD060` (table-column-style), which fires on every table and produces dozens of findings CI will never raise. Pin the local tool to the CI version: `npm install markdownlint-cli2@<pinned>`.
 - Find the action's pinned version by reading its manifest at the tag: `https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2-action/<tag>/package.json` (readable via `WebFetch` even for repos outside the session scope).
 - `markdownlint-cli2` only accepts a config file **named** `.markdownlint-cli2.jsonc` (or a `*.markdownlint-cli2.jsonc` prefix); `--config /tmp/arbitrary.json` is rejected. Name any throwaway config accordingly (e.g. `check.markdownlint-cli2.jsonc`).
 - Record the pinned version in the adopting repo's `CLAUDE.md`, so the next agent matches CI on the first run.

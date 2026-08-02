@@ -1,6 +1,6 @@
 # github-workflows
 
-Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of each repo copy-pasting (and silently drifting) its CI, repos call these reusable workflows and pin the moving `@v1` branch. Fix or improve a workflow once here; merging to `main` advances `v1` automatically and every consumer follows.
+Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of each repo copy-pasting (and silently drifting) its CI, repos call these reusable workflows and pin the moving `@v2` branch. Fix or improve a workflow once here; merging to `main` advances `v2` automatically and every consumer follows.
 
 Three families:
 
@@ -19,23 +19,23 @@ Three families:
 | [`terraform-provider-release.yml`](.github/workflows/terraform-provider-release.yml) | GoReleaser build + GPG-signed publish of a provider to the Terraform + OpenTofu registries on a `v*` tag |
 | [`markdown-lint.yml`](.github/workflows/markdown-lint.yml) | `markdownlint-cli2` style/structure check |
 | [`markdown-links.yml`](.github/workflows/markdown-links.yml) | lychee internal link/anchor check (blocking) + daily external-URL sweep that reports via an issue |
-| [`version-check.yml`](.github/workflows/version-check.yml) | Opt-in: a consumer checks whether it pins a now-frozen major and opens/closes a migration issue in its own repo (no credential) |
+| [`flungo-workflows.yml`](.github/workflows/flungo-workflows.yml) | Opt-in: the jobs every consumer should run against this repo. Today `version-check` — flags a consumer pinning a now-frozen major by opening/closing a migration issue in its own repo (no credential) |
 
 ## Using them
 
-A consumer repo calls a workflow and passes its own inputs and secrets. Pin to the moving major branch (`@v1`):
+A consumer repo calls a workflow and passes its own inputs and secrets. Pin to the moving major branch (`@v2`):
 
 ```yaml
 jobs:
   markdown-links:
-    uses: flungo/github-workflows/.github/workflows/markdown-links.yml@v1
+    uses: flungo/github-workflows/.github/workflows/markdown-links.yml@v2
     secrets:
       LYCHEE_GITHUB_TOKEN: ${{ secrets.LYCHEE_GITHUB_TOKEN }}
 ```
 
 See the adopting runbooks for every workflow's inputs, secrets, and a copy-paste caller: [Terraform](docs/runbooks/adopting-terraform-workflows.md), [Provider](docs/runbooks/adopting-terraform-provider-workflows.md), [Markdown](docs/runbooks/adopting-markdown-workflows.md).
 
-**Every consumer should also adopt the [version check](docs/runbooks/adopting-version-check.md)** — a one-line, credential-free opt-in workflow that raises an issue in the consumer's own repo if a future major bump ever leaves it pinning a frozen `@vN`. Recommended for every repo that pins these workflows.
+**Every consumer should also adopt [`flungo-workflows`](docs/runbooks/adopting-flungo-workflows.md)** — a one-line, credential-free opt-in caller whose `version-check` job raises an issue in the consumer's own repo if a future major bump ever leaves it pinning a frozen `@vN`. Recommended for every repo that pins these workflows.
 
 ## Standards & rationale
 
@@ -46,4 +46,4 @@ See the adopting runbooks for every workflow's inputs, secrets, and a copy-paste
 
 ## Versioning
 
-Consumers pin `@v1` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)). Every merge to `main` runs [`release.yml`](.github/workflows/release.yml), which fast-forwards `v1` to `main`, so consumers following `@v1` pick fixes up automatically. A breaking change cuts a new major branch (`v2`) by bumping `MAJOR_BRANCH` in that workflow — see [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md). This repo's own workflows and docs are validated on every PR by [`ci.yml`](.github/workflows/ci.yml) (actionlint plus the repo's own Markdown workflows).
+Consumers pin `@v2` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)). Every merge to `main` runs [`release.yml`](.github/workflows/release.yml), which fast-forwards `v2` to `main`, so consumers following `@v2` pick fixes up automatically. A breaking change cuts a new major branch (`v3`) by bumping `MAJOR_BRANCH` in that workflow — see [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md). This repo's own workflows and docs are validated on every PR by [`ci.yml`](.github/workflows/ci.yml) (actionlint plus the repo's own Markdown workflows).

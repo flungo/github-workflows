@@ -17,8 +17,8 @@ The caller owns the triggers, path filters, and `.markdownlint-cli2.jsonc`.
 ```yaml
 name: Markdown lint
 on:
-  pull_request: { paths: ['**/*.md', '.markdownlint-cli2.jsonc', '.github/workflows/markdown-lint.yml'] }
-  push: { branches: [main], paths: ['**/*.md', '.markdownlint-cli2.jsonc', '.github/workflows/markdown-lint.yml'] }
+  pull_request:
+  push: { branches: [main] }
 jobs:
   markdown-lint:
     uses: flungo/github-workflows/.github/workflows/markdown-lint.yml@v2
@@ -32,8 +32,8 @@ The caller owns all four triggers and supplies `LYCHEE_GITHUB_TOKEN` for the ext
 ```yaml
 name: Markdown links
 on:
-  pull_request: { paths: ['**/*.md', '.github/workflows/markdown-links.yml', .lycheeignore] }
-  push: { branches: [main], paths: ['**/*.md', '.github/workflows/markdown-links.yml', .lycheeignore] }
+  pull_request:
+  push: { branches: [main] }
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
@@ -95,6 +95,33 @@ Reflowing this repo left 65 of these after a clean `reflow.py` pass.
 Expect to break them yourself, and re-render to confirm nothing moved.
 
 For what the check deliberately does *not* flag, and the `<!-- sembr-* -->` comments that suppress a finding it gets wrong, see [`markdown-validation.md § Semantic line breaks`](../reference/markdown-validation.md#semantic-line-breaks-markdown-sembryml).
+
+## `paths:` filters — optional, and incompatible with required checks
+
+A caller may narrow any of the three workflows above to the paths that matter, and it is a reasonable thing to want: most pull requests touch no Markdown, and the checks would otherwise run for nothing.
+
+```yaml
+on:
+  pull_request: { paths: ['**/*.md', '.markdownlint-cli2.jsonc'] }
+```
+
+**It rules out ever requiring the context, though**, so decide that first.
+
+A workflow skipped by path filtering never creates its check run at all.
+GitHub then holds a required context at *Expected* indefinitely — not failed, just never arriving, with nothing able to clear it — so any pull request touching none of the filtered paths is unmergeable.
+In a Terraform repo the common case is exactly that: a `.tf`-only change matches no Markdown path.
+
+The distinction that makes this confusing is *workflow* versus *job*.
+A job that skips itself on an `if:` **does** report a check run, which is why `markdown-links`' external sweep can self-skip on `pull_request` safely — its workflow still ran.
+Only a workflow that never triggers leaves nothing behind.
+
+So the filter is available where a check is advisory, and off the table where it gates merges.
+All three take seconds, so running them on everything costs little and keeps the option of requiring them open.
+
+> **The `flungo` fleet does not use them.**
+> `terraform-github`'s `markdown` flag makes both contexts required — and strict, so a branch must also be up to date — which is incompatible with path filtering.
+> The snippets above are therefore unfiltered, and a repository managed there should keep them that way.
+> See [§ Adopting in a repository managed by `terraform-github`](#adopting-in-a-repository-managed-by-terraform-github).
 
 ## Per-repo config
 

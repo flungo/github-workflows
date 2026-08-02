@@ -39,7 +39,7 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  terraform-provider-test:
     uses: flungo/github-workflows/.github/workflows/terraform-provider-test.yml@v1
 
   # Acceptance tests stay local — see below.
@@ -78,7 +78,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  docs:
+  terraform-provider-docs:
     permissions:
       contents: write
     uses: flungo/github-workflows/.github/workflows/terraform-provider-docs.yml@v1
@@ -116,7 +116,7 @@ on:
         type: string
 
 jobs:
-  release:
+  terraform-provider-release:
     permissions:
       contents: write
     uses: flungo/github-workflows/.github/workflows/terraform-provider-release.yml@v1

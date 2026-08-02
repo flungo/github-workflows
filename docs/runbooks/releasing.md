@@ -16,6 +16,8 @@ The review gate is the PR into `main`. There is no separate release PR and no ta
 
 A change is **breaking** when it would fail an existing caller: renaming or removing an input, adding a required secret, or changing a workflow's default behaviour. (Docs, internal refactors, and new *optional* inputs are **not** breaking.)
 
+**Renaming a check context is breaking too**, and is the case most easily missed because it does not fail a run. A context is `<caller job id> / <reusable job name>`, so renaming a job here — or giving one a `name:`, or removing it — changes what consumers' branch protection sees. Their runs still pass; their required checks simply never report again, leaving pull requests stuck behind a permanently pending entry. See [ADR-011](../decisions/011-reusable-job-ids-are-the-check-name.md).
+
 In the **same PR** as the breaking change:
 
 1. Edit `MAJOR_BRANCH` in `release.yml` — bump it one major, e.g. `v1` → `v2`.

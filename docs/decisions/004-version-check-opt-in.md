@@ -3,6 +3,8 @@
 Date: 2026-07-24
 Status: Accepted
 
+> **Renamed by [ADR-012](012-flungo-workflows-meta-workflow.md).** The decision below stands unchanged — opt-in, per-consumer, reporting through an issue in the consumer's own repository — but the workflow it describes moves from `version-check.yml` to `flungo-workflows.yml`, with `version-check` as a job inside it, at the `v2` cut.
+
 ## Context
 
 The moving-major-branch model ([ADR-003](003-version-via-moving-v1-branch.md)) delivers non-breaking fixes to consumers automatically — they pin `@v1` and follow it, with no per-consumer bump. That removes the original reason for the Renovate/Dependabot follow-up recorded in [ADR-001](001-centralised-reusable-workflows.md): there is no routine version bump to make.

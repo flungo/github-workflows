@@ -2,7 +2,7 @@
 
 **Highly recommended for every consumer** — most of all when adopting your *first* `github-workflows` workflow, or in a repo that adopted one before this check existed. Once a repo pins `@vN`, a later major bump (a new `v<N+1>` branch) **freezes** the old major; this check is what stops the repo silently lagging on a release that no longer receives updates.
 
-It is opt-in and needs **no credential**. Running in your repo's context, it reads the majors you pin from your own workflow files, compares them to the latest major published in `flungo/github-workflows`, and opens — then auto-closes — a single migration issue in **your** repo when you're on a now-frozen major. Rationale: [ADR-004](../decisions/004-version-check-opt-in.md); how it fits releases: [`releasing.md` § Tracking consumer migration](releasing.md#tracking-consumer-migration).
+It is opt-in and needs **no credential**. Running in your repo's context, it reads the majors you pin from your own workflow files, compares them to the latest major published in `flungo/github-workflows`, and opens — then auto-closes — a single migration issue in **your** repo when you're on a now-frozen major. The issue links every [upgrade guide](../reference/upgrading.md) section between the major you pin and the current one, in order, so it tells you how to catch up and not merely that you are behind ([ADR-013](../decisions/013-per-major-upgrade-guide.md)). Rationale: [ADR-004](../decisions/004-version-check-opt-in.md); how it fits releases: [`releasing.md` § Tracking consumer migration](releasing.md#tracking-consumer-migration).
 
 Add one scheduled caller:
 

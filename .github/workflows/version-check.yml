@@ -6,6 +6,13 @@
 # now-frozen major — opens (and later closes) a single tracking issue in the
 # CONSUMER's own repo. See docs/runbooks/adopting-version-check.md.
 #
+# The issue names the upgrade guide sections between the pinned major and the
+# current one, in order, so the notice that a consumer is behind also says how
+# to catch up (ADR-013). That body is built by the version-check-issue composite
+# action rather than inline here, so the section span is unit-tested — see
+# ADR-009 for why the action comes from a checkout of this repo at the
+# workflow file's own commit.
+#
 # No credentials: it reads this (public) repo's v* branches with the caller's
 # own repo-scoped GITHUB_TOKEN (public repo, so plain read works) and writes the
 # issue in the caller's repo. The caller must grant `issues: write` (a reusable
@@ -26,7 +33,23 @@ jobs:
       issues: write
     steps:
       - uses: actions/checkout@v7
-      - name: Compare pinned major against the latest published
+
+      # This repo's composite actions can't be referenced by a local `./` path
+      # from a reusable workflow (it would resolve against the caller's
+      # checkout), so fetch them at the exact commit this workflow file was
+      # taken from: the action always matches the ref the caller pinned — @v1,
+      # or a feature branch under test. See ADR-009.
+      - name: Fetch workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github-workflows
+          sparse-checkout: .github/actions
+          persist-credentials: false
+
+      - name: Find frozen pins
+        id: survey
         uses: actions/github-script@v9
         with:
           script: |
@@ -34,9 +57,6 @@ jobs:
             const path = require('path');
 
             const pOwner = 'flungo', pRepo = 'github-workflows';
-            const { owner, repo } = context.repo;
-            const label = 'github-workflows-version';
-            const marker = '<!-- github-workflows-version-check -->';
 
             // 1. Majors this repo pins, read from its own workflow files. Only
             //    bare `@vN` refs are majors we track; SHA/branch/tag pins are skipped.
@@ -68,29 +88,50 @@ jobs:
             }
             const latest = Math.max(...majors);
 
-            // 3. Any pinned major below the latest is frozen.
-            const stale = [...pinned.entries()].filter(([maj]) => maj < latest).sort();
+            // 3. Any pinned major below the latest is frozen. Shaped for the
+            //    version-check-issue action, which validates it again rather
+            //    than trusting this.
+            const stale = [...pinned.entries()]
+              .filter(([maj]) => maj < latest)
+              .sort(([a], [b]) => a - b)
+              .map(([major, set]) => ({ major, files: [...set].sort() }));
 
-            // 4. Upsert / close one tracking issue in the caller's repo.
+            core.setOutput('latest', String(latest));
+            core.setOutput('stale', JSON.stringify(stale));
+
+      - name: Build the migration issue
+        id: issue
+        uses: ./.github-workflows/.github/actions/version-check-issue
+        with:
+          stale: ${{ steps.survey.outputs.stale }}
+          latest: ${{ steps.survey.outputs.latest }}
+
+      - name: Upsert or close the tracking issue
+        uses: actions/github-script@v9
+        env:
+          STALE: ${{ steps.survey.outputs.stale }}
+          LATEST: ${{ steps.survey.outputs.latest }}
+          MARKER: ${{ steps.issue.outputs.marker }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const label = 'github-workflows-version';
+            // From the action, not a second copy of the literal: it embeds the
+            // marker, so it is the only thing that knows what to search for.
+            const marker = process.env.MARKER;
+            const stale = JSON.parse(process.env.STALE || '[]');
+            const latest = process.env.LATEST;
+
             const open = await github.paginate(github.rest.issues.listForRepo, {
               owner, repo, state: 'open', labels: label, per_page: 100,
             });
             const existing = open.find(i => (i.body || '').includes(marker));
 
             if (stale.length > 0) {
-              const lines = stale.map(([maj, set]) =>
-                `- \`@v${maj}\` (frozen) in ${[...set].sort().map(f => `\`${f}\``).join(', ')} → migrate to \`@v${latest}\``);
-              const body = [
-                marker,
-                `\`${pOwner}/${pRepo}\` has published **v${latest}**, but this repo still pins an older, now-frozen major:`,
-                '',
-                ...lines,
-                '',
-                `A frozen major receives no further updates. Bump the caller \`uses: …@vN\` refs to \`@v${latest}\` once you've accommodated the breaking change — see ${pOwner}/${pRepo} \`docs/runbooks/releasing.md\`.`,
-                '',
-                '_Raised by the opt-in `version-check` workflow; it closes this issue automatically once every ref is on the latest major._',
-              ].join('\n');
-              const title = `Pinned ${pRepo} major is frozen — v${latest} available`;
+              const title = process.env.ISSUE_TITLE;
+              const body = process.env.ISSUE_BODY;
               if (existing) {
                 await github.rest.issues.update({ owner, repo, issue_number: existing.number, title, body });
                 core.notice(`Updated migration issue #${existing.number}.`);
@@ -101,7 +142,7 @@ jobs:
             } else if (existing) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: existing.number,
-                body: `All \`${pOwner}/${pRepo}\` refs are on the latest major (v${latest}) — closing.`,
+                body: `All \`flungo/github-workflows\` refs are on the latest major (v${latest}) — closing.`,
               });
               await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
               core.info(`Closed migration issue #${existing.number}.`);

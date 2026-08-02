@@ -31,6 +31,17 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     uses: ./.github/workflows/markdown-lint.yml
 
+  markdown-sembr:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    uses: ./.github/workflows/markdown-sembr.yml
+    with:
+      # The violating fixture exists to be flagged — action-tests.yml asserts
+      # the check fails on it — so it is the one file the repo's own run must
+      # skip. Its sibling under fixtures/clean/ stays in scope, and dogfooding
+      # `ignore` is worth more than a `<!-- sembr-disable-file -->` comment
+      # here, which would also blind the tests that need the failure.
+      ignore: .github/actions/check-semantic-line-breaks/fixtures/violations
+
   markdown-links:
     # Internal (offline, blocking) on PR/push; external (issue-reporting) on the
     # daily schedule / dispatch — the reusable workflow self-selects by event.

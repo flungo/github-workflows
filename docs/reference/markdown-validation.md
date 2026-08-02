@@ -1,9 +1,12 @@
 # The Markdown validation standard
 
-Two reusable workflows that validate Markdown.
+Three reusable workflows that validate Markdown.
 They are **not Terraform-specific** — any repo with a `docs/` tree (or Markdown anywhere) can adopt them, and most `flungo` repos should.
 For caller snippets and the step-by-step adoption procedure, see [`adopting-markdown-workflows.md`](../runbooks/adopting-markdown-workflows.md).
-For *why* these tools were chosen, see [ADR-002](../decisions/002-markdown-validation-tooling.md).
+For *why* these tools were chosen, see [ADR-002](../decisions/002-markdown-validation-tooling.md) and [ADR-015](../decisions/015-semantic-line-break-check.md).
+
+Two of the three are style-neutral and every repo should take them.
+The third, `markdown-sembr.yml`, enforces a prose convention, so it is adopted only by repos that write that way — see [§ Semantic line breaks](#semantic-line-breaks-markdown-sembryml).
 
 ## Workflows
 
@@ -16,6 +19,71 @@ For *why* these tools were chosen, see [ADR-002](../decisions/002-markdown-valid
     It scans the whole tree (`'**/*.md'`), so a rename that breaks a link in an untouched file is still caught.
   - **external** — an online sweep of external URLs (`lychee` without `--offline`, which also re-checks internal links + anchors).
     Scheduled/dispatch only (never on a PR, so a flaky outage can't block a merge); reports breakage via a single auto-updated GitHub issue rather than failing the run.
+- [`markdown-sembr.yml`](../../.github/workflows/markdown-sembr.yml) — the one hard [semantic line break](https://sembr.org/) rule: two sentences must not share a source line.
+  Blocking, on every PR/push.
+  **Opt-in by adoption** — it is the only Markdown workflow that imposes a prose style.
+  Inputs `globs` and `ignore`; no secrets or permissions.
+
+## Semantic line breaks (`markdown-sembr.yml`)
+
+The pairing that turns `MD013` off (see [§ markdownlint rules that need a deliberate choice](#markdownlint-rules-that-need-a-deliberate-choice)) replaces a character ceiling with a convention: one sentence per source line.
+`markdown-sembr.yml` is the half of that pairing a tool can hold up.
+The `markdown-standards` plugin's [`reflow.py`](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/scripts/reflow.py) migrates a repo's existing prose in one pass; this keeps it there.
+
+### What it checks — and only this
+
+Of the sembr rules, one is a MUST that can be decided from the source alone:
+
+> A semantic line break MUST occur after a sentence, as punctuated by a period (.), exclamation mark (!), or question mark (?).
+
+So the check reports exactly one thing: **a sentence that ends part-way through a line, with more prose after it**.
+It never reports a line that could have been broken *further* (those rules are SHOULD/MAY — a judgement call), never suggests joining lines, never enforces a line length, and never rewrites a file.
+Rules 1 and 2 (a break must not change the rendered output or the meaning) are properties of an edit, not of a file, so nothing static can check them.
+
+Only prose is scanned.
+Frontmatter, fenced and indented code, HTML blocks, tables, ATX and setext headings, thematic breaks and link reference definitions are skipped wholesale; within a prose line, code spans, autolinks and link destinations are skipped too.
+Blockquote and list-item text **is** prose and is checked, with the structural prefix stripped — so a `1.` list marker is never read as a sentence end.
+
+### Where it deliberately stays quiet
+
+A false positive in a blocking check costs more than a missed break, so the checker under-reports by design.
+It says nothing when:
+
+| Case | Example | Why |
+| --- | --- | --- |
+| A known abbreviation precedes the `.` | `…, etc. Then the next point.` | Unknowable without parsing the sentence; the list is kept to terms implausible as a sentence's last word |
+| An initialism or initial precedes it | `the U.S. Government`, `at 9 a.m. Monday`, `J. R. R. Tolkien` | Recognised structurally — a dotted token whose every segment is one letter |
+| What follows is lowercase | `It needs approx. five minutes.` | The safety net for abbreviations nobody listed |
+| The `.` is escaped or an ellipsis | `1\. not a list`, `trails off… And on` | Deliberately ambiguous as a sentence end |
+
+The first two rows are permanent blind spots: a sentence genuinely ending in "etc." is not reported.
+That is the intended direction of the trade — see [ADR-015](../decisions/015-semantic-line-break-check.md).
+
+It is stricter than `reflow.py` in one place, which matters when migrating a repo: a sentence ending inside markup (`**A bold lead-in.** The rest.`) is a break `reflow.py` cannot see, because the period is followed by `*` rather than a space.
+See [§ Adopt it only alongside the reflow](../runbooks/adopting-markdown-workflows.md#adopt-it-only-alongside-the-reflow).
+
+### Suppressing a finding
+
+For the cases it still gets wrong, four HTML comments, mirroring markdownlint's inline configuration:
+
+```markdown
+<!-- sembr-disable-file -->        skip the whole file
+<!-- sembr-disable-next-line -->   skip the next line
+<!-- sembr-disable -->             skip until re-enabled
+<!-- sembr-enable -->
+```
+
+Prefer a suppression comment over widening `ignore`, and prefer fixing the prose over either.
+
+### Inputs
+
+| Input | Default | Notes |
+| --- | --- | --- |
+| `globs` | `**/*.md` | Newline-separated. Unlike most Markdown tooling this **does** reach into dot directories, so a repo's `.github/*.md` is checked |
+| `ignore` | *(empty)* | Newline-separated. A pattern naming a directory covers everything beneath it, and an unanchored pattern matches at any depth |
+
+The check itself is the [`check-semantic-line-breaks`](../../.github/actions/check-semantic-line-breaks/) composite action — a dependency-free Python script run on the runner's system Python, fetched at the workflow file's own commit ([ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md)) rather than a pinned ref.
+Its colocated `test_sembr_check.py` is where the confidence lives: the larger half of it asserts silence on every construct a naive "break after every `.`" would have flagged.
 
 ## Tool selection
 
@@ -32,7 +100,8 @@ The trade-offs are below so a repo can make its own call; Fabrizio's choices, an
 - **`MD013` (line-length) — turn it off if you adopt semantic line breaks.**
   A character ceiling is the wrong tool for prose consistency: it only caps, it can't reflow, and 80 columns is archaic.
   The convention is one sentence per source line, which Markdown renders as one paragraph — for sentence-scoped diffs and review comments, and no paragraph-wide reflow churn when a sentence changes.
-  Nothing enforces one-sentence-per-line (Prettier declined it — cross-language sentence detection is too hard — and markdownlint has no reflow rule), so it is a convention, with `MD013` off so nothing fights it.
+  No general-purpose formatter enforces one-sentence-per-line (Prettier declined it — cross-language sentence detection is too hard — and markdownlint has no reflow rule), so the bulk of it stays a convention, with `MD013` off so nothing fights it.
+  Its one MUST rule *is* enforceable, and [`markdown-sembr.yml`](#semantic-line-breaks-markdown-sembryml) enforces that much; the rest still rests on the author.
   ("Semantic line breaks" / "ventilated prose" — see <https://sembr.org/> — has no universal consensus; adopted for the diff and review benefits.)
 - **`MD024` (no-duplicate-heading) — `siblings_only` trades strictness for repeatable subsection names.**
   `siblings_only` lets docs repeat subsection names (e.g. `Context` / `Decision` / `Consequences` across ADRs, or `Symptom` / `Root cause` across incidents) under different parents.

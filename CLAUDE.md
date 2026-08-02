@@ -7,17 +7,20 @@ Three families:
 - **Terraform** (`terraform.yml`, `terraform-drift.yml`) — for the Terraform repos (`terraform-grafana-cloud`, `terraform-github`, `terraform-cloudflare`, …).
 - **Terraform provider** (`terraform-provider-test.yml`, `terraform-provider-docs.yml`, `terraform-provider-release.yml`) — for the Terraform provider repos (`terraform-provider-stalwart`, …); acceptance tests stay in each consumer as a local `testacc` job ([ADR-006](docs/decisions/006-terraform-provider-ci-family.md)).
 - **Markdown** (`markdown-lint.yml`, `markdown-links.yml`) — repo-agnostic; for any repo with Markdown docs.
+  `markdown-sembr.yml` joins the family but is **opt-in by adoption**: it is the one workflow here that imposes a prose style (one sentence per source line), so it stays a separate caller rather than a flag on `markdown-lint.yml` ([ADR-015](docs/decisions/015-semantic-line-break-check.md)).
 
 ## Repo layout
 
-- `.github/workflows/*.yml` — the reusable workflows and this repo's own self-CI (`ci.yml`, `action-tests.yml`); `.github/actions/` — shared composite actions any of the reusable workflows can fetch at their own commit via `job.workflow_sha` ([ADR-009](docs/decisions/009-composite-action-via-workflow-identity-checkout.md)) — the Terraform family is the first consumer, not the scope.
+- `.github/workflows/*.yml` — the reusable workflows and this repo's own self-CI (`ci.yml`, `action-tests.yml`); `.github/actions/` — shared composite actions any of the reusable workflows can fetch at their own commit via `job.workflow_sha` ([ADR-009](docs/decisions/009-composite-action-via-workflow-identity-checkout.md)) — the Terraform family was the first consumer, `markdown-sembr.yml` and `flungo-workflows.yml` followed; the pattern is not scoped to any of them.
 - `docs/` follows the [Divio/Diátaxis](https://diataxis.fr/) split, matching the sibling repos — each subdirectory has a `README.md` index:
-  - `reference/` — information-oriented lookup: `terraform-workflow.md` (the Terraform CI standard), `terraform-provider-workflow.md` (the provider CI standard) and `markdown-validation.md` (the Markdown workflows, for any repo).
+  - `reference/` — information-oriented lookup: `terraform-workflow.md` (the Terraform CI standard), `terraform-provider-workflow.md` (the provider CI standard) and `markdown-validation.md` (the Markdown workflows, for any repo, including what the semantic-line-break check deliberately does not flag).
   - `runbooks/` — repeatable how-to guides: `adopting-terraform-workflows.md`, `adopting-terraform-provider-workflows.md`, `adopting-markdown-workflows.md`, `adopting-flungo-workflows.md`, `releasing.md`.
   - `decisions/` — ADRs, numbered sequentially and never renumbered.
   - `plans/` — one-time procedures, tracked to completion then retired.
 - House-style conventions, and the tooling that applies them, are **not** in this repo.
   Each workflow family has a matching standards plugin in the [`flungo-plugins` marketplace](https://github.com/flungo/claude-plugins) — `terraform-standards`, `terraform-provider-standards`, `markdown-standards` — so every family's workflows stay adoptable by a repo that wants none of the house style.
+  `markdown-sembr.yml` is the single deliberate exception: a prose convention with one machine-decidable MUST rule, kept adoptable-by-omission by being its own caller ([ADR-015](docs/decisions/015-semantic-line-break-check.md)) rather than a flag on a style-neutral workflow.
+  Adding a second such workflow needs the same argument made again, not this one cited.
 
 ## Conventions
 
@@ -60,6 +63,14 @@ Improvements intentionally not done yet:
 - **Consistent input naming.**
   The workflow inputs mix kebab case (`tf-var-name`, `working-directory`, `terraform-version`, `concurrency-group`, `plan-comment-marker`) and snake case (`tf_vars`, `tf_secret_vars`, `force_run`) (review of #23).
   Converging on one convention renames inputs — a breaking contract change — so fold it into the same `v3` design as the deprecation above.
+- **Make `markdown-sembr / sembr` a required check across the fleet.**
+  Semantic line breaks are the standard for the repos Fabrizio owns, so the plan is settled: every one of them adopts `markdown-sembr.yml`, and once they all report the context it becomes required — via `markdown = true` in [`flungo/terraform-github`](https://github.com/flungo/terraform-github), which declares the Markdown family's required contexts for a repo.
+  That is a fleet policy, not a change to the product.
+  [ADR-015](docs/decisions/015-semantic-line-break-check.md) keeps the workflow opt-in *by adoption* so an outside repo can take `markdown-lint.yml` and `markdown-links.yml` without inheriting a prose style; owning the repo is what settles the opt-in, and neither fact constrains the other.
+  What remains is **order**, and it is unforgiving.
+  A context required before the repo reports it is permanently pending, and nothing in that repo can merge — the same footgun `releasing.md` documents for renamed contexts.
+  So per repo: reflow the prose, add the caller, watch it report green, and only then require it.
+  A repo that has not reflowed cannot be included, so this is a staged rollout ending in the `markdown = true` change, not a single Terraform apply that starts it.
 - **Separate the products from the self-CI more visibly.**
   GitHub discovers workflows only flat in `.github/workflows/` (no subdirectories), so the reusable products and the self-CI (`ci.yml`, `action-tests.yml`, `release.yml`) can only be separated by naming and docs — the status quo everywhere, but worth tightening (#23 follow-up).
   A product's filename is its public contract (consumers pin the full path), so the convention burdens the *internal* files: a **`self-` prefix** (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`) — it takes the slot the product family name occupies on the other filenames, and the rename is non-breaking, any time.
@@ -67,6 +78,11 @@ Improvements intentionally not done yet:
   Renaming the products themselves (GitHub's `reusable-*` docs style) is a breaking contract change that would have to ride the `v3` batch above.
 
 ## Working in this repo with Claude Code
+
+Match CI's markdownlint locally before pushing, or you chase findings CI never raises and miss ones it does: `npm install markdownlint-cli2@0.23.1` (markdownlint 0.41.1), the version `DavidAnson/markdownlint-cli2-action@v24` pins.
+Re-check it at the tag when the action is bumped.
+
+The repo's prose follows semantic line breaks and `markdown-sembr.yml` enforces the MUST rule, so keep one sentence per source line in any Markdown you touch.
 
 Use the GitHub MCP (`mcp__github__*`) for PRs, CI status, and comments — there is no `gh` CLI.
 Trigger on-demand runs with `mcp__github__actions_run_trigger` (`workflow_id`, `ref`), surface the run URL (`https://github.com/flungo/github-workflows/actions/runs/<run_id>`), and report the outcome.

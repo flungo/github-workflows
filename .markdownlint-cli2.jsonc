@@ -16,5 +16,10 @@
     // width is shared state — every cell is padded to its column's widest, so
     // one edit reflows the whole table and one long cell taxes every row.
     "MD060": { "style": "compact" }
-  }
+  },
+  // The semantic-line-break check's fixtures are test inputs, not
+  // documentation: they deliberately carry raw HTML, both code-block styles and
+  // malformed prose so the checker has something to look past (or flag). Style
+  // rules would fight the very constructs they exist to exercise.
+  "ignores": [".github/actions/check-semantic-line-breaks/fixtures/**"]
 }

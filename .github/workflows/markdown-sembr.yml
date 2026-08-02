@@ -1,0 +1,54 @@
+# Reusable semantic-line-break check for Markdown prose.
+#
+# The third of the Markdown family, and the only opinionated one — a repo that
+# does not write one sentence per line simply does not call it. That is why it
+# is its own workflow rather than a flag on markdown-lint.yml: adoption is the
+# opt-in, so calling markdown-lint.yml never starts enforcing a prose style.
+#
+# It reports one thing only: two sentences sharing a source line, which is the
+# single MUST rule of <https://sembr.org/> that can be decided from the source.
+# Where a line *could* also have been broken is a judgement call and is never
+# reported. See docs/reference/markdown-validation.md.
+name: Markdown semantic line breaks
+
+on:
+  workflow_call:
+    inputs:
+      globs:
+        description: Newline-separated globs of files to check. Reaches dot directories.
+        type: string
+        default: '**/*.md'
+      ignore:
+        description: >-
+          Newline-separated globs to skip. A pattern naming a directory covers
+          everything beneath it, and an unanchored pattern matches at any depth.
+        type: string
+        default: ''
+
+jobs:
+  # No `name:` — the job ID is the check name (ADR-011), giving
+  # `markdown-sembr / sembr`. New here, so it complies from the start and adds
+  # nothing to the `v2` rename batch.
+  sembr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The check ships as a composite action co-located with this workflow, so
+      # it is fetched at this workflow file's own commit rather than a pinned
+      # ref — @v1 in production, the feature branch when one is under test.
+      # See ADR-009.
+      - name: Fetch workflow actions
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github-workflows
+          sparse-checkout: .github/actions
+          persist-credentials: false
+
+      - name: Check semantic line breaks
+        uses: ./.github-workflows/.github/actions/check-semantic-line-breaks
+        with:
+          globs: ${{ inputs.globs }}
+          ignore: ${{ inputs.ignore }}

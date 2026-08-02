@@ -1,0 +1,30 @@
+# The semantic-line-break check behind markdown-sembr.yml. A reusable workflow
+# cannot reference this action by a local `./` path (that resolves against the
+# *caller's* checkout), so the workflow checks out this repo at
+# ${{ job.workflow_sha }} and uses the action from that checkout — always the
+# same commit as the workflow file itself. See ADR-009.
+name: Check semantic line breaks
+description: >-
+  Fail when Markdown prose puts two sentences on one line — the one hard
+  (MUST) rule of Semantic Line Breaks, reported as inline annotations.
+inputs:
+  globs:
+    description: >-
+      Newline-separated glob patterns of files to check, relative to the
+      workspace.
+    default: '**/*.md'
+  ignore:
+    description: >-
+      Newline-separated glob patterns to skip. A pattern naming a directory
+      covers everything beneath it, and an unanchored pattern matches at any
+      depth.
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Check semantic line breaks
+      shell: bash
+      env:
+        GLOBS: ${{ inputs.globs }}
+        IGNORE: ${{ inputs.ignore }}
+      run: '"$GITHUB_ACTION_PATH/run.sh"'

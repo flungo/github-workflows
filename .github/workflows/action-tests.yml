@@ -105,6 +105,43 @@ jobs:
           printf '%s' "$BODY" | grep -qF -- '](https://example.invalid/upgrading.md#v3)'
           printf '%s' "$BODY" | grep -qF -- 'self-test.yml'
 
+  check-semantic-line-breaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Colocated tests (test.sh)
+        run: |
+          set -eu
+          # The rejection paths print ::error:: on purpose; suspend
+          # workflow-command processing so a passing run doesn't collect
+          # failure annotations.
+          resume_token="action-tests-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "::stop-commands::$resume_token"
+          if .github/actions/check-semantic-line-breaks/test.sh; then
+            echo "::$resume_token::"
+          else
+            echo "::$resume_token::"
+            echo "::error::check-semantic-line-breaks test.sh failed"
+            exit 1
+          fi
+
+      # Two green wiring steps rather than one green and one deliberately red:
+      # a `uses:` step cannot be wrapped in ::stop-commands::, so a failing one
+      # would decorate every passing run with its annotations. The second step
+      # would fail without `ignore:` doing its job, which is what proves the
+      # input is wired.
+      - name: Wiring smoke test (globs)
+        uses: ./.github/actions/check-semantic-line-breaks
+        with:
+          globs: .github/actions/check-semantic-line-breaks/fixtures/clean/**/*.md
+
+      - name: Wiring smoke test (ignore)
+        uses: ./.github/actions/check-semantic-line-breaks
+        with:
+          globs: .github/actions/check-semantic-line-breaks/fixtures/**/*.md
+          ignore: .github/actions/check-semantic-line-breaks/fixtures/violations
+
   coverage:
     runs-on: ubuntu-latest
     steps:

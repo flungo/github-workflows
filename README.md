@@ -8,7 +8,7 @@ Three families:
 
 - **Terraform** — `terraform.yml`, `terraform-drift.yml`, for the Terraform repos.
 - **Terraform provider** — `terraform-provider-test.yml`, `terraform-provider-docs.yml`, `terraform-provider-release.yml`, for the Terraform provider repos.
-- **Markdown** — `markdown-lint.yml`, `markdown-links.yml`, for any repo with Markdown docs (most repos).
+- **Markdown** — `markdown-lint.yml`, `markdown-links.yml`, for any repo with Markdown docs (most repos), plus the opt-in `markdown-sembr.yml` for repos that write one sentence per source line.
 
 ## Reusable workflows
 
@@ -21,6 +21,7 @@ Three families:
 | [`terraform-provider-release.yml`](.github/workflows/terraform-provider-release.yml) | GoReleaser build + GPG-signed publish of a provider to the Terraform + OpenTofu registries on a `v*` tag |
 | [`markdown-lint.yml`](.github/workflows/markdown-lint.yml) | `markdownlint-cli2` style/structure check |
 | [`markdown-links.yml`](.github/workflows/markdown-links.yml) | lychee internal link/anchor check (blocking) + daily external-URL sweep that reports via an issue |
+| [`markdown-sembr.yml`](.github/workflows/markdown-sembr.yml) | Opt-in: flags two sentences sharing a source line — the one hard [semantic line break](https://sembr.org/) rule |
 | [`flungo-workflows.yml`](.github/workflows/flungo-workflows.yml) | Opt-in: the jobs every consumer should run against this repo. Today `version-check` — flags a consumer pinning a now-frozen major by opening/closing a migration issue in its own repo (no credential) |
 
 ## Using them

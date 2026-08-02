@@ -1,9 +1,10 @@
 # Adopting the Markdown workflows
 
-How any repo with Markdown calls `markdown-lint.yml` and `markdown-links.yml`, and gets its docs passing them.
+How any repo with Markdown calls `markdown-lint.yml`, `markdown-links.yml` and (optionally) `markdown-sembr.yml`, and gets its docs passing them.
 Pin `@v2`.
-These are **not** Terraform-specific — most `flungo` repos with a `docs/` tree should adopt them.
-See [`markdown-validation.md`](../reference/markdown-validation.md) for what they do and [ADR-002](../decisions/002-markdown-validation-tooling.md) for why.
+These are **not** Terraform-specific — most `flungo` repos with a `docs/` tree should adopt the first two, which impose no house style.
+`markdown-sembr.yml` is the exception to that "most repos should": it enforces a prose convention — one sentence per source line — so take it only in a repo that writes that way, or is willing to reflow to it.
+See [`markdown-validation.md`](../reference/markdown-validation.md) for what they do, [ADR-002](../decisions/002-markdown-validation-tooling.md) and [ADR-015](../decisions/015-semantic-line-break-check.md) for why.
 
 > **Highly recommended:** also adopt [`flungo-workflows`](adopting-flungo-workflows.md) — a one-line opt-in caller that raises an issue in this repo if a future major bump ever leaves it pinning a frozen `@vN`.
 > Especially worth it when this is the first `github-workflows` workflow the repo adopts.
@@ -50,6 +51,51 @@ jobs:
 The external sweep upserts a `markdown-links` issue, so the reusable workflow requests `issues: write`; a reusable workflow's own `permissions:` only *caps* the token, so the caller must grant it, or the run fails at startup (`startup_failure`) when the repo's default `GITHUB_TOKEN` is read-only.
 (`markdown-lint.yml` needs no extra permissions — the default read access is enough.)
 
+## `markdown-sembr.yml`
+
+Optional, and only for a repo on semantic line breaks.
+It flags two sentences sharing a source line — the one MUST rule of [sembr](https://sembr.org/) — and nothing else.
+No secrets or permissions; both inputs have working defaults.
+
+```yaml
+name: Markdown semantic line breaks
+on:
+  pull_request: { paths: ['**/*.md', '.github/workflows/markdown-sembr.yml'] }
+  push: { branches: [main], paths: ['**/*.md', '.github/workflows/markdown-sembr.yml'] }
+jobs:
+  markdown-sembr:
+    uses: flungo/github-workflows/.github/workflows/markdown-sembr.yml@v2
+```
+
+Pass `globs` (default `**/*.md`, and unlike most Markdown tooling it does reach into dot directories) and `ignore` to narrow the scan — a vendored or generated tree, say:
+
+```yaml
+    with:
+      ignore: |
+        vendor
+        docs/generated
+```
+
+### Adopt it only alongside the reflow
+
+The check is a gate, not a migration.
+Pointing it at prose that has never been reflowed produces a finding per sentence pair — a few hundred in a typical `docs/` tree.
+Run [`reflow.py`](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/scripts/reflow.py) from the `markdown-standards` plugin first — it is render-gated, so it only rewrites what renders identically — then land the caller.
+Turning `MD013` off in the same change keeps the two rules from pulling in opposite directions.
+
+**`reflow.py` alone will not get you to green, and the residue is always the same shape.**
+It splits on a terminator followed by a space, so a sentence ending inside markup is invisible to it:
+
+```markdown
+**Prefer fixing it forward.** If compatibility can be restored…
+```
+
+The period is followed by `*`, so `reflow.py` leaves the line alone — but the bold lead-in is a complete sentence, so the check flags it.
+Reflowing this repo left 65 of these after a clean `reflow.py` pass.
+Expect to break them yourself, and re-render to confirm nothing moved.
+
+For what the check deliberately does *not* flag, and the `<!-- sembr-* -->` comments that suppress a finding it gets wrong, see [`markdown-validation.md § Semantic line breaks`](../reference/markdown-validation.md#semantic-line-breaks-markdown-sembryml).
+
 ## Per-repo config
 
 Both files are **repo-specific — regenerate them, don't copy another repo's**:
@@ -68,7 +114,7 @@ Both files are **repo-specific — regenerate them, don't copy another repo's**:
 > Fabrizio's [`markdown-standards` plugin](https://github.com/flungo/claude-plugins/tree/main/plugins/markdown-standards) drives everything in this section as a single **`/adopt-markdown-ci`** command, bundled with his Markdown conventions — see [§ Optional — automated adoption with Fabrizio's conventions](#optional--automated-adoption-with-fabrizios-conventions) below.
 > The procedure here stands on its own if you would rather not take those opinions.
 
-Introduce the checks **one at a time**, and for each of the two blocking checks confirm it goes red before fixing what it finds — a check you have never seen fail is a check you have not verified.
+Introduce the checks **one at a time**, and for each blocking check confirm it goes red before fixing what it finds — a check you have never seen fail is a check you have not verified.
 The external sweep is the exception, for the reason in [§ The external sweep does not need a manufactured failure](#the-external-sweep-does-not-need-a-manufactured-failure) below.
 Expect a first-time markdownlint run to produce many findings.
 
@@ -82,6 +128,9 @@ Verify each check as you add it:
 3. **External URLs** (`markdown-links.yml` external job + `.lycheeignore`) — dispatch it **in GitHub via `workflow_dispatch`**, not from a sandbox with limited egress, and only once `LYCHEE_GITHUB_TOKEN` exists (see the pitfalls below).
    Confirm the run reaches the external job and reports on this repo's own URLs, then add genuine 403/404-when-unauthenticated offenders to `.lycheeignore` and re-dispatch until green.
    One clean run is all this step needs.
+4. **Semantic line breaks** (`markdown-sembr.yml`), only if the repo is taking the convention — last, and after the reflow has landed, so its first run is over prose that is already in shape.
+   Confirm it goes red by putting two sentences on one line.
+   Verify the reflow itself by rendering, not by the check: the check is blind to a break that changed the output, which is exactly what `reflow.py`'s render gate is for.
 
 ### The external sweep does not need a manufactured failure
 
@@ -96,8 +145,8 @@ What is genuinely per-repo is the URL set and the token, and one clean dispatch 
 
 ## Adopting in a repository managed by `terraform-github`
 
-Every `flungo`-owned repository is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), and its `standard-repository` module has a `markdown` flag meaning **"this repository follows Fabrizio's Markdown standards"** — that is, it calls the two workflows above under the conventional names.
-The flag provisions the secret the external sweep reads and requires the checks the two workflows report — so what you name your calling jobs is not a local style choice there, it is a cross-repository contract.
+Every `flungo`-owned repository is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), and its `standard-repository` module has a `markdown` flag meaning **"this repository follows Fabrizio's Markdown standards"** — that is, it calls `markdown-lint.yml` and `markdown-links.yml` under the conventional names.
+The flag provisions the secret the external sweep reads and requires the checks those two report — so what you name your calling jobs is not a local style choice there, it is a cross-repository contract.
 
 **Name the calling jobs after the workflows they call, or the flag does not fit.**
 
@@ -115,6 +164,11 @@ Both halves follow published conventions rather than being arbitrary: the caller
 > Every repository in the fleet has already made that move, so this applies only to a consumer outside it.
 
 The external sweep's `markdown-links / external` is **not** required and must not be added: it self-skips on `pull_request`, which is the whole point of reporting through an issue instead.
+
+`markdown-sembr / sembr` is not in the table **yet**, and the omission is timing rather than scope.
+Semantic line breaks are the standard for the repositories Fabrizio owns, so the intent is for the flag to require this context too — but a context required before the repository reports it stays permanently pending and blocks every merge there.
+So each repository reflows, adds the caller, and reports it green first; the `terraform-github` change comes last, once they all do.
+Until then, adopting `markdown-sembr.yml` is exactly as described above: a caller you add, not a check anything requires.
 
 **The flag defaults to `true`**, so an established repository needs no edit in `terraform-github` at all — adopting the workflows is enough, and the flag is already asserting that you have.
 What it does is attach `LYCHEE_GITHUB_TOKEN` and add the two contexts above to the repository's required status checks.

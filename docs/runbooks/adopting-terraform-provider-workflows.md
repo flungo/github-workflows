@@ -19,7 +19,9 @@ The PR/push gate: `build` (build + vet), `lint` (gofmt + golangci-lint), `test` 
 | `provider-name` | *(derived)* | Provider's Terraform name; empty derives it from the repo name (strips the `terraform-provider-` prefix) |
 | `check-docs` | `true` | Regenerate the docs and `git diff` them; set `false` for a provider without generated docs |
 
-No secrets; runs on the repo-scoped `GITHUB_TOKEN`. The docs check runs `tfplugindocs generate` from your module, so it needs [`tfplugindocs`](https://github.com/hashicorp/terraform-plugin-docs) as a tool dependency in your `go.mod` (the standard for a provider with generated docs) — that pins the version too. Add it with:
+No secrets; runs on the repo-scoped `GITHUB_TOKEN`.
+The docs check runs `tfplugindocs generate` from your module, so it needs [`tfplugindocs`](https://github.com/hashicorp/terraform-plugin-docs) as a tool dependency in your `go.mod` (the standard for a provider with generated docs) — that pins the version too.
+Add it with:
 
 ```sh
 go get -tool github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs   # Go 1.24+

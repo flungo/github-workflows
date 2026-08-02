@@ -1,8 +1,13 @@
 # Adopting the Terraform workflows
 
-How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v2`. The workflows hold no secrets — the caller passes them. Repo-specific files (`*.tf`, the `terraform.tf` version pins) stay in the consumer. For the Markdown workflows (which any repo can also adopt), see [`adopting-markdown-workflows.md`](adopting-markdown-workflows.md).
+How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`.
+Pin `@v2`.
+The workflows hold no secrets — the caller passes them.
+Repo-specific files (`*.tf`, the `terraform.tf` version pins) stay in the consumer.
+For the Markdown workflows (which any repo can also adopt), see [`adopting-markdown-workflows.md`](adopting-markdown-workflows.md).
 
-> **Highly recommended:** also adopt [`flungo-workflows`](adopting-flungo-workflows.md) — a one-line opt-in caller that raises an issue in this repo if a future major bump ever leaves it pinning a frozen `@vN`. Especially worth it when this is the first `github-workflows` workflow the repo adopts.
+> **Highly recommended:** also adopt [`flungo-workflows`](adopting-flungo-workflows.md) — a one-line opt-in caller that raises an issue in this repo if a future major bump ever leaves it pinning a frozen `@vN`.
+> Especially worth it when this is the first `github-workflows` workflow the repo adopts.
 
 ## `terraform.yml`
 
@@ -51,7 +56,10 @@ jobs:
       provider_token: ${{ secrets.FLUNGO_GITHUB_TOKEN }}
 ```
 
-**The `permissions:` block on the calling job is required, not optional.** A reusable workflow's own `permissions:` only *caps* the token; the caller grants it. If the repo's default `GITHUB_TOKEN` is read-only (a common hardening default), omitting this makes the run fail at startup (`startup_failure`) because the reusable workflow requests `pull-requests: write` (to upsert the plan comment) — more than the caller granted. `terraform.yml` needs `contents: read` + `pull-requests: write`; `terraform-drift.yml` needs `contents: read` + `issues: write`.
+**The `permissions:` block on the calling job is required, not optional.**
+A reusable workflow's own `permissions:` only *caps* the token; the caller grants it.
+If the repo's default `GITHUB_TOKEN` is read-only (a common hardening default), omitting this makes the run fail at startup (`startup_failure`) because the reusable workflow requests `pull-requests: write` (to upsert the plan comment) — more than the caller granted.
+`terraform.yml` needs `contents: read` + `pull-requests: write`; `terraform-drift.yml` needs `contents: read` + `issues: write`.
 
 For a directory-per-owner repo, add `working-directory`, and set an owner-scoped `concurrency-group` and `plan-comment-marker` (e.g. `terraform-flungo`, `<!-- terraform-plan-flungo -->`).
 
@@ -65,9 +73,14 @@ To pass **extra secret variables** the config needs (beyond the provider token �
         {"db_password": ${{ toJSON(secrets.DB_PASSWORD) }}}
 ```
 
-The workflow exports each entry as a masked `TF_VAR_<key>` (here `TF_VAR_db_password`). Use `toJSON(...)` so each value is correctly quoted and escaped into the JSON; values are strings (multi-line is fine). Only *secret* values belong in `tf_secret_vars` — every value is masked, so it should be genuinely secret and not a short, common string (e.g. `true`, `eu`): each masked value is redacted from **every** step's logs for the rest of the job, so a common one makes unrelated output confusing to read. An empty value, an invalid variable-name key, or malformed JSON fails the step with a clear `::error::` rather than a silent or confusing plan later.
+The workflow exports each entry as a masked `TF_VAR_<key>` (here `TF_VAR_db_password`).
+Use `toJSON(...)` so each value is correctly quoted and escaped into the JSON; values are strings (multi-line is fine).
+Only *secret* values belong in `tf_secret_vars` — every value is masked, so it should be genuinely secret and not a short, common string (e.g. `true`, `eu`): each masked value is redacted from **every** step's logs for the rest of the job, so a common one makes unrelated output confusing to read.
+An empty value, an invalid variable-name key, or malformed JSON fails the step with a clear `::error::` rather than a silent or confusing plan later.
 
-**Declare the consuming Terraform variable `sensitive = true`.** `::add-mask::` keeps each value out of the run *logs*, but the plan text also lands unmasked in the `terraform-plan` artifact and the upserted PR comment (and, from drift, in the `drift` issue) — only `sensitive` keeps a value out of plan output. If the repo also runs `terraform-drift.yml`, pass the same `tf_secret_vars` there too (below) so scheduled drift runs the same config rather than perpetually re-planning the missing variables.
+**Declare the consuming Terraform variable `sensitive = true`.**
+`::add-mask::` keeps each value out of the run *logs*, but the plan text also lands unmasked in the `terraform-plan` artifact and the upserted PR comment (and, from drift, in the `drift` issue) — only `sensitive` keeps a value out of plan output.
+If the repo also runs `terraform-drift.yml`, pass the same `tf_secret_vars` there too (below) so scheduled drift runs the same config rather than perpetually re-planning the missing variables.
 
 To pass **extra non-secret variables** — configuration knobs the repo would otherwise hard-code, not credentials — use the `tf_vars` **input**, the same JSON-map shape without the masking:
 
@@ -77,11 +90,15 @@ To pass **extra non-secret variables** — configuration knobs the repo would ot
       tf_vars: '{"environment": "production", "replica_count": "3"}'
 ```
 
-Each entry is exported as an unmasked `TF_VAR_<key>`. An input is plainly visible in the run, so a secret never belongs here — that's what `tf_secret_vars` is for, and the two paths are kept distinct on purpose. Setting the same variable through more than one path (`tf_vars`, `tf_secret_vars`, `tf-var-name`) fails the export loudly rather than silently letting one win.
+Each entry is exported as an unmasked `TF_VAR_<key>`.
+An input is plainly visible in the run, so a secret never belongs here — that's what `tf_secret_vars` is for, and the two paths are kept distinct on purpose.
+Setting the same variable through more than one path (`tf_vars`, `tf_secret_vars`, `tf-var-name`) fails the export loudly rather than silently letting one win.
 
 ### Consuming the plan artifact (follow-on jobs)
 
-A job that `uses:` a reusable workflow can't add steps to it, so anything that must run *after* the plan lives in a **separate job** that `needs:` the caller's Terraform job and downloads the plan artifact (default name `terraform-plan` — see [the contract](../reference/terraform-workflow.md#plan-artifact)). Gate it on the Terraform job's `result` — and note the `always() &&`: a job whose `needs` failed is **skipped by default** unless its `if` uses a status function, so a bare `needs.terraform.result == 'failure'` self-skips in exactly the case (a failed plan) it exists to handle. Because the artifact is the only contract, upstream changes to the plan sequence never ripple into the follow-on job:
+A job that `uses:` a reusable workflow can't add steps to it, so anything that must run *after* the plan lives in a **separate job** that `needs:` the caller's Terraform job and downloads the plan artifact (default name `terraform-plan` — see [the contract](../reference/terraform-workflow.md#plan-artifact)).
+Gate it on the Terraform job's `result` — and note the `always() &&`: a job whose `needs` failed is **skipped by default** unless its `if` uses a status function, so a bare `needs.terraform.result == 'failure'` self-skips in exactly the case (a failed plan) it exists to handle.
+Because the artifact is the only contract, upstream changes to the plan sequence never ripple into the follow-on job:
 
 ```yaml
 jobs:
@@ -104,7 +121,10 @@ jobs:
 
 ## `terraform-drift.yml`
 
-Opt-in. Same `working-directory` / `terraform-version` / `concurrency-group` / `tf-var-name` / `tf_vars` inputs as above, plus `force_run` (boolean). Same secrets — **including `tf_secret_vars`**: if the config consumes extra variables, mirror the `terraform.yml` caller's `tf_secret_vars` (and `tf_vars`) here, or scheduled drift will fail or perpetually re-plan the missing variables (and it pastes plan output into the `drift` issue, so the same `sensitive = true` guidance applies). The caller keeps the `schedule` trigger — reusable workflows can't be scheduled directly.
+Opt-in.
+Same `working-directory` / `terraform-version` / `concurrency-group` / `tf-var-name` / `tf_vars` inputs as above, plus `force_run` (boolean).
+Same secrets — **including `tf_secret_vars`**: if the config consumes extra variables, mirror the `terraform.yml` caller's `tf_secret_vars` (and `tf_vars`) here, or scheduled drift will fail or perpetually re-plan the missing variables (and it pastes plan output into the `drift` issue, so the same `sensitive = true` guidance applies).
+The caller keeps the `schedule` trigger — reusable workflows can't be scheduled directly.
 
 ```yaml
 name: Terraform Drift Remediation
@@ -130,10 +150,7 @@ jobs:
 
 ## Adopting in a repository managed by `terraform-github`
 
-Every `flungo`-owned repository is managed as code in
-[`terraform-github`](https://github.com/flungo/terraform-github), and its
-`standard-repository` module has a `terraform` flag meaning **"this repository
-follows Fabrizio's Terraform standards"** — that is, it calls the workflows above under the conventional names.
+Every `flungo`-owned repository is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), and its `standard-repository` module has a `terraform` flag meaning **"this repository follows Fabrizio's Terraform standards"** — that is, it calls the workflows above under the conventional names.
 Setting it provisions the secrets those workflows read and requires the check they report, so adopting these workflows is two changes, not one.
 
 **Name things conventionally, or the flag does not fit.**
@@ -168,8 +185,7 @@ In practice that means the rebase above stops being a one-off.
 Every merge to the default branch leaves the other open pull requests out of date, and each must be brought forward and re-run before it can merge in turn.
 GitHub's **Update branch** button appears once this is in force, and its dropdown offers **Update with rebase** — the linear-history-preserving option, and the one to use here.
 
-The mitigations are worth knowing before the queue is felt rather than after:
-stacked pull requests for genuinely dependent work, and delegating the rebase-push-retry loop to an agent for everything else.
+The mitigations are worth knowing before the queue is felt rather than after: stacked pull requests for genuinely dependent work, and delegating the rebase-push-retry loop to an agent for everything else.
 Merge queue is not among them for these repositories — it is gated on organisation ownership, and every repository here is owned by a personal account.
 
 ### Where the workflows cannot run as-is
@@ -183,5 +199,10 @@ The better fix is to make the workflow runnable there rather than to fork it —
 ## Per-consumer notes
 
 - **`terraform-grafana-cloud`** — calls `terraform.yml` and `terraform-drift.yml`; `tf-var-name: TF_VAR_grafana_cloud_access_policy_token`.
-- **`terraform-github`** — calls `terraform.yml` with `working-directory: owners/flungo`, `concurrency-group: terraform-flungo`, `plan-comment-marker: <!-- terraform-plan-flungo -->`, `tf-var-name: TF_VAR_github_token`. No drift workflow. Adds a follow-on `inspect` job that consumes the plan artifact to surface classic branch protection blocking its branch-protection ruleset guard.
-- **`stalwart.flungo.net`** — does **not** use these *yet*; its Terraform pipeline is bespoke (ephemeral-container tests, a LAN apply; see [ADR-001](../decisions/001-centralised-reusable-workflows.md)). It adopts only the Markdown workflows. Its management host is LAN-only, so `terraform.yml`'s baseline cannot run on a GitHub-hosted runner — aligning it likely means **extending this workflow to accept a caller-supplied runner label** rather than that repository forking it, and would generalise to any future LAN-reachable target. Tracked in that repository's `docs/plans/terraform-ci.md`; meanwhile `terraform-github` keeps its `terraform` flag set and excludes the check it cannot report.
+- **`terraform-github`** — calls `terraform.yml` with `working-directory: owners/flungo`, `concurrency-group: terraform-flungo`, `plan-comment-marker: <!-- terraform-plan-flungo -->`, `tf-var-name: TF_VAR_github_token`.
+  No drift workflow.
+  Adds a follow-on `inspect` job that consumes the plan artifact to surface classic branch protection blocking its branch-protection ruleset guard.
+- **`stalwart.flungo.net`** — does **not** use these *yet*; its Terraform pipeline is bespoke (ephemeral-container tests, a LAN apply; see [ADR-001](../decisions/001-centralised-reusable-workflows.md)).
+  It adopts only the Markdown workflows.
+  Its management host is LAN-only, so `terraform.yml`'s baseline cannot run on a GitHub-hosted runner — aligning it likely means **extending this workflow to accept a caller-supplied runner label** rather than that repository forking it, and would generalise to any future LAN-reachable target.
+  Tracked in that repository's `docs/plans/terraform-ci.md`; meanwhile `terraform-github` keeps its `terraform` flag set and excludes the check it cannot report.

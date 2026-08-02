@@ -1,6 +1,7 @@
 # Runbooks
 
-Step-by-step operational procedures for repeatable tasks — task-oriented how-to guides referenced indefinitely (no completion checkboxes). Contrast [`../plans/`](../plans/) (one-time procedures, retired when done) and [`../reference/`](../reference/) (information-oriented lookup).
+Step-by-step operational procedures for repeatable tasks — task-oriented how-to guides referenced indefinitely (no completion checkboxes).
+Contrast [`../plans/`](../plans/) (one-time procedures, retired when done) and [`../reference/`](../reference/) (information-oriented lookup).
 
 | Document | Purpose |
 | --- | --- |

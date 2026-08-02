@@ -1,7 +1,6 @@
 # ADR-008: Inject secret Terraform variables via a masked env-var explosion
 
-Date: 2026-07-29
-Status: Accepted
+Date: 2026-07-29 Status: Accepted
 
 ## Context
 
@@ -26,7 +25,8 @@ Add an optional **`tf_secret_vars`** secret to both workflows: a JSON object `{"
 - The caller assembles the map inline from its own standalone secrets via `toJSON()`, so each value stays an independently-rotatable secret and the JSON is always well-formed.
 
 **Secret and non-secret variables travel distinct paths.**
-Secrets go through `tf_secret_vars` (a `secrets:` entry, always masked); the plain `tf_vars` name is **reserved** for a future non-secret `inputs:` mechanism — kept distinct so a secret is never routed through a non-masked path. *(Since added, 2026-07-30 — the same JSON-map shape as an `input:`, exported unmasked, with a fail-loud collision guard across the paths.)*
+Secrets go through `tf_secret_vars` (a `secrets:` entry, always masked); the plain `tf_vars` name is **reserved** for a future non-secret `inputs:` mechanism — kept distinct so a secret is never routed through a non-masked path.
+*(Since added, 2026-07-30 — the same JSON-map shape as an `input:`, exported unmasked, with a fail-loud collision guard across the paths.)*
 
 **Fail loud at the point of error.**
 The export step rejects invalid JSON, an invalid Terraform-variable-name key, or an empty value with an `::error::` and non-zero exit, and writes to `GITHUB_ENV` with a random heredoc delimiter so a value cannot terminate it early and inject arbitrary entries.
@@ -44,6 +44,8 @@ Masking covers the run *logs* only; the plan text also lands in the `terraform-p
 
 **Negative / trade-offs:**
 
-- The export step is duplicated in both workflows. Extracting it to a shared composite action was deferred: a reusable workflow must reference it by full path (`flungo/github-workflows/.github/actions/…@v1`, since a local `./` action resolves against the *caller's* checkout), which creates a pre-merge testing chicken-and-egg. *(Since resolved — [ADR-009](009-composite-action-via-workflow-identity-checkout.md) extracts the step and fetches it at the workflow file's own commit instead of `@v1`.)*
+- The export step is duplicated in both workflows.
+  Extracting it to a shared composite action was deferred: a reusable workflow must reference it by full path (`flungo/github-workflows/.github/actions/…@v1`, since a local `./` action resolves against the *caller's* checkout), which creates a pre-merge testing chicken-and-egg.
+  *(Since resolved — [ADR-009](009-composite-action-via-workflow-identity-checkout.md) extracts the step and fetches it at the workflow file's own commit instead of `@v1`.)*
 - Per-line masking registers every line of every value for the whole job, so a short or common value redacts later log output — mitigated by documenting that values must be genuinely secret.
 - Plan-output redaction can't be enforced by the workflow; it relies on the consumer declaring `sensitive = true`.

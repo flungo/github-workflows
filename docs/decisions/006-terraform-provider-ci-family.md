@@ -1,7 +1,6 @@
 # ADR-006: A reusable CI family for the Terraform providers
 
-Date: 2026-07-26
-Status: Accepted
+Date: 2026-07-26 Status: Accepted
 
 ## Context
 
@@ -20,7 +19,8 @@ Add a **Terraform provider** family of reusable workflows, called by each provid
 - **`terraform-provider-docs.yml`** — regenerate and commit Registry docs on non-default branches, so contributors need no local Terraform.
 - **`terraform-provider-release.yml`** — GoReleaser build + GPG-signed publish on a `v*` tag (or `workflow_dispatch` with a version), unsigned when the GPG secrets are absent.
 
-**Acceptance tests stay in the consumer.** Each provider keeps its own `testacc` job in the same workflow file that calls `terraform-provider-test.yml` — a reusable workflow composes at the job level, so a caller mixes the shared jobs with its own without forking anything.
+**Acceptance tests stay in the consumer.**
+Each provider keeps its own `testacc` job in the same workflow file that calls `terraform-provider-test.yml` — a reusable workflow composes at the job level, so a caller mixes the shared jobs with its own without forking anything.
 The consumer owns the backend, the image matrix, the coverage floor, and the diagnostics.
 
 The workflows stay provider-agnostic: they read the Go version from the consumer's `go.mod`, run `tfplugindocs generate` directly (the provider name auto-derives from the repo name — the `terraform-provider-` prefix stripped — and the `tfplugindocs` version is pinned by the consumer's `go.mod` tool dependency), and take the golangci-lint / Terraform / GoReleaser versions as inputs.
@@ -37,4 +37,5 @@ Running `tfplugindocs` here rather than delegating to a per-consumer `make gener
 **Negative / trade-offs:**
 
 - Acceptance testing is not centralised, so each provider still authors that job (by design — revisit if a second provider shows a genuinely shared shape).
-- The docs and release workflows assume the standard scaffold (committed `docs/`, `tfplugindocs` as a `go.mod` tool dependency, a `.goreleaser.yml`); a provider without them opts out (`check-docs: false`, or simply not calling the workflow). A provider that needs extra code generation beyond `tfplugindocs` would need an added input or its own docs job.
+- The docs and release workflows assume the standard scaffold (committed `docs/`, `tfplugindocs` as a `go.mod` tool dependency, a `.goreleaser.yml`); a provider without them opts out (`check-docs: false`, or simply not calling the workflow).
+  A provider that needs extra code generation beyond `tfplugindocs` would need an added input or its own docs job.

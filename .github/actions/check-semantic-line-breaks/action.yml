@@ -15,9 +15,10 @@ inputs:
     default: '**/*.md'
   ignore:
     description: >-
-      Newline-separated glob patterns to skip. A pattern naming a directory
-      covers everything beneath it, and an unanchored pattern matches at any
-      depth.
+      Newline-separated glob patterns to skip, following gitignore's anchoring
+      rule: a pattern containing a slash is relative to the scan root, a bare
+      name matches at any depth. A pattern naming a directory covers everything
+      beneath it.
     default: ''
 runs:
   using: composite

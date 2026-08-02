@@ -80,7 +80,7 @@ Prefer a suppression comment over widening `ignore`, and prefer fixing the prose
 | Input | Default | Notes |
 | --- | --- | --- |
 | `globs` | `**/*.md` | Newline-separated. Unlike most Markdown tooling this **does** reach into dot directories, so a repo's `.github/*.md` is checked |
-| `ignore` | *(empty)* | Newline-separated. A pattern naming a directory covers everything beneath it, and an unanchored pattern matches at any depth |
+| `ignore` | *(empty)* | Newline-separated, following gitignore's anchoring rule: a pattern containing a slash is relative to the repository root, a bare name matches at any depth. A directory covers everything beneath it |
 
 The check itself is the [`check-semantic-line-breaks`](../../.github/actions/check-semantic-line-breaks/) composite action — a dependency-free Python script run on the runner's system Python, fetched at the workflow file's own commit ([ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md)) rather than a pinned ref.
 Its colocated `test_sembr_check.py` is where the confidence lives: the larger half of it asserts silence on every construct a naive "break after every `.`" would have flagged.

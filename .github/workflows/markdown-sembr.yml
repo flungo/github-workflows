@@ -20,8 +20,9 @@ on:
         default: '**/*.md'
       ignore:
         description: >-
-          Newline-separated globs to skip. A pattern naming a directory covers
-          everything beneath it, and an unanchored pattern matches at any depth.
+          Newline-separated globs to skip, following gitignore's anchoring rule:
+          a pattern containing a slash is relative to the repository root, a bare
+          name matches at any depth. A directory covers everything beneath it.
         type: string
         default: ''
 
@@ -51,4 +52,12 @@ jobs:
         uses: ./.github-workflows/.github/actions/check-semantic-line-breaks
         with:
           globs: ${{ inputs.globs }}
-          ignore: ${{ inputs.ignore }}
+          # The checkout above lands this repo's own Markdown inside the
+          # caller's workspace, where the default `**/*.md` would scan it as if
+          # it were the caller's. The path is a literal twelve lines up, so name
+          # it here rather than have the action infer it from GITHUB_ACTION_PATH
+          # — that inference is a fallback for direct users of the action, and
+          # it silently did not fire in a real consumer.
+          ignore: |
+            .github-workflows
+            ${{ inputs.ignore }}

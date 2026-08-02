@@ -39,7 +39,7 @@ env:
   # The current major release branch consumers pin as `@<this>`. Advancing it is
   # automatic; bumping it (v1 -> v2 -> …) in a breaking PR is the only manual,
   # reviewed step and the sole trigger for cutting a new major.
-  MAJOR_BRANCH: v1
+  MAJOR_BRANCH: v2
 
 jobs:
   advance:

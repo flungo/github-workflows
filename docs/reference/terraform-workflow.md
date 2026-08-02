@@ -35,7 +35,7 @@ This is the **extension seam** for callers that need to act on the plan. A calle
 
 ## Shared composite actions
 
-The variable export (provider token + the variable maps) is implemented once, as the `export-terraform-variables` composite action in this repo, not inline in each workflow. Each Terraform job fetches it with an extra sparse checkout of `flungo/github-workflows` at the workflow file's own commit (`job.workflow_sha`) into a `.github-workflows/` directory in the job workspace — so the action always matches the `@v1` (or feature-branch) ref the caller pinned, and the directory sits outside anything Terraform reads ([ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md)).
+The variable export (provider token + the variable maps) is implemented once, as the `export-terraform-variables` composite action in this repo, not inline in each workflow. Each Terraform job fetches it with an extra sparse checkout of `flungo/github-workflows` at the workflow file's own commit (`job.workflow_sha`) into a `.github-workflows/` directory in the job workspace — so the action always matches the `@v2` (or feature-branch) ref the caller pinned, and the directory sits outside anything Terraform reads ([ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md)).
 
 ## Drift remediation & pausing
 
@@ -54,4 +54,4 @@ Sessions use the GitHub MCP — there is no `gh` CLI. Trigger on-demand runs wit
 
 ## Adoption & versioning
 
-Consumers call each workflow with `uses: flungo/github-workflows/.github/workflows/<name>@v1` and pass their inputs/secrets — see [`adopting-terraform-workflows.md`](../runbooks/adopting-terraform-workflows.md). `@v1` is a moving **branch**, not a tag ([ADR-003](../decisions/003-version-via-moving-v1-branch.md)): it advances automatically on every merge to `main`, and a breaking input/secret change cuts a new major branch (`v2`) — see [`releasing.md`](../runbooks/releasing.md). Anything repo-specific — `*.tf`, the `terraform.tf` version pins, and the secrets themselves — stays in the consumer.
+Consumers call each workflow with `uses: flungo/github-workflows/.github/workflows/<name>@v2` and pass their inputs/secrets — see [`adopting-terraform-workflows.md`](../runbooks/adopting-terraform-workflows.md). `@v2` is a moving **branch**, not a tag ([ADR-003](../decisions/003-version-via-moving-v1-branch.md)): it advances automatically on every merge to `main`, and a breaking input/secret change cuts a new major branch (`v3`) — see [`releasing.md`](../runbooks/releasing.md). Anything repo-specific — `*.tf`, the `terraform.tf` version pins, and the secrets themselves — stays in the consumer.

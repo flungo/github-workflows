@@ -2,7 +2,7 @@
 # ordered upgrade-guide links a consumer needs to cross the majors between the
 # one it pins and the current one (ADR-013).
 #
-# Split out of version-check.yml because that span is the only non-trivial logic
+# Split out of flungo-workflows.yml because that span is the only non-trivial logic
 # in the job — it can be wrong at either end and in its ordering — and a
 # composite action is what makes it unit-testable, per ADR-009. A reusable
 # workflow cannot reference this by a local `./` path, so the workflow checks

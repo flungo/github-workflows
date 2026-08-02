@@ -9,6 +9,6 @@ paths:
   .github/workflows/terraform*.yml:
     ignore:
       - 'property "workflow_(repository|sha)" is not defined in object type'
-  .github/workflows/version-check.yml:
+  .github/workflows/flungo-workflows.yml:
     ignore:
       - 'property "workflow_(repository|sha)" is not defined in object type'

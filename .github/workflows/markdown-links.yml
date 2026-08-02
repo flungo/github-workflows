@@ -19,7 +19,6 @@ on:
 
 jobs:
   internal:
-    name: Internal links & anchors
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
@@ -33,7 +32,6 @@ jobs:
           fail: true
 
   external:
-    name: External URLs
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:

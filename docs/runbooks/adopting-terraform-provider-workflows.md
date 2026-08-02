@@ -1,7 +1,7 @@
 # Adopting the provider workflows
 
 How a `flungo` Terraform **provider** repo calls `terraform-provider-test.yml`, `terraform-provider-docs.yml`, and `terraform-provider-release.yml`.
-Pin `@v1`.
+Pin `@v2`.
 For the contract and rationale, see [`terraform-provider-workflow.md`](../reference/terraform-provider-workflow.md) and [ADR-006](../decisions/006-terraform-provider-ci-family.md).
 
 These cover the standard HashiCorp scaffold (build/lint/test, `tfplugindocs` docs, GoReleaser publish).
@@ -40,7 +40,7 @@ permissions:
 
 jobs:
   terraform-provider-test:
-    uses: flungo/github-workflows/.github/workflows/terraform-provider-test.yml@v1
+    uses: flungo/github-workflows/.github/workflows/terraform-provider-test.yml@v2
 
   # Acceptance tests stay local — see below.
   testacc:
@@ -81,7 +81,7 @@ jobs:
   terraform-provider-docs:
     permissions:
       contents: write
-    uses: flungo/github-workflows/.github/workflows/terraform-provider-docs.yml@v1
+    uses: flungo/github-workflows/.github/workflows/terraform-provider-docs.yml@v2
 ```
 
 ## `terraform-provider-release.yml`
@@ -119,7 +119,7 @@ jobs:
   terraform-provider-release:
     permissions:
       contents: write
-    uses: flungo/github-workflows/.github/workflows/terraform-provider-release.yml@v1
+    uses: flungo/github-workflows/.github/workflows/terraform-provider-release.yml@v2
     with:
       version: ${{ inputs.version }}
     secrets:
@@ -131,4 +131,4 @@ On a tag push `inputs.version` is empty and GoReleaser uses the pushed tag; on `
 
 ## Version check
 
-Every provider consumer should also adopt the [version check](adopting-version-check.md) — a one-line, credential-free caller that flags the repo if a future major bump ever leaves it on a frozen `@vN`.
+Every provider consumer should also adopt [`flungo-workflows`](adopting-flungo-workflows.md) — a one-line, credential-free caller that flags the repo if a future major bump ever leaves it on a frozen `@vN`.

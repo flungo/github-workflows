@@ -25,7 +25,7 @@ Ship a reusable **`version-check.yml`** that each consumer **opts into** on a sc
 2. reads the **latest** major published here (the highest `v<N>` branch — this repo is **public**, so plain read needs no credential);
 3. opens — and later auto-closes — a single tracking issue **in the consumer's own repo** when it pins a now-frozen major.
 
-**No external credential is involved:** the consumer writes the issue with its own repo-scoped `GITHUB_TOKEN` (the caller grants `issues: write`), and reads this public repo's branches with that same token. Opt-in is one small caller workflow, documented in [`adopting-version-check.md`](../runbooks/adopting-version-check.md).
+**No external credential is involved:** the consumer writes the issue with its own repo-scoped `GITHUB_TOKEN` (the caller grants `issues: write`), and reads this public repo's branches with that same token. Opt-in is one small caller workflow, documented in [`adopting-flungo-workflows.md`](../runbooks/adopting-flungo-workflows.md).
 
 **The producer-side rollup census is explicitly out of scope** — its cross-owner credential requirement (and the enumeration complications above) make it undesirable now. It stays a possible future addition for a single fleet-wide "who has migrated?" view, gated on settling a suitable identity (the same identity question as [terraform-github#13](https://github.com/flungo/terraform-github/issues/13)).
 

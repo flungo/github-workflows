@@ -1,8 +1,8 @@
 # Keep the third-party actions the reusable workflows pin — checkout, setup-terraform,
 # github-script, upload-artifact, markdownlint-cli2-action, lychee — current. Each bump
-# rides the moving @v1 branch out to every consumer on merge, so this one config keeps
-# the fleet's actions fresh. This repo's own @v1 versioning is NOT managed here: that's
-# the moving branch + version-check.yml (ADR-003/004), which Dependabot can't track
+# rides the moving @v2 branch out to every consumer on merge, so this one config keeps
+# the fleet's actions fresh. This repo's own @v2 versioning is NOT managed here: that's
+# the moving branch + flungo-workflows.yml (ADR-003/004), which Dependabot can't track
 # anyway. See ADR-007.
 version: 2
 updates:

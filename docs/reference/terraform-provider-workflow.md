@@ -47,6 +47,6 @@ On `workflow_dispatch` the workflow creates and pushes the tag from the `version
 
 ## Adoption & versioning
 
-Consumers call each workflow with `uses: flungo/github-workflows/.github/workflows/<name>@v1` and pass their inputs/secrets — see [`adopting-terraform-provider-workflows.md`](../runbooks/adopting-terraform-provider-workflows.md).
-`@v1` is a moving **branch**, not a tag ([ADR-003](../decisions/003-version-via-moving-v1-branch.md)): it advances automatically on every merge to `main`, and a breaking input/secret change cuts a new major branch (`v2`) — see [`releasing.md`](../runbooks/releasing.md).
-Every provider consumer should also adopt the [version check](../runbooks/adopting-version-check.md).
+Consumers call each workflow with `uses: flungo/github-workflows/.github/workflows/<name>@v2` and pass their inputs/secrets — see [`adopting-terraform-provider-workflows.md`](../runbooks/adopting-terraform-provider-workflows.md).
+`@v2` is a moving **branch**, not a tag ([ADR-003](../decisions/003-version-via-moving-v1-branch.md)): it advances automatically on every merge to `main`, and a breaking input/secret change cuts a new major branch (`v3`) — see [`releasing.md`](../runbooks/releasing.md).
+Every provider consumer should also adopt [`flungo-workflows`](../runbooks/adopting-flungo-workflows.md).

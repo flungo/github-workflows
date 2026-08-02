@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the title and body of the version-check migration issue.
 #
-# Split out of version-check.yml so the one piece of real logic here — working
+# Split out of flungo-workflows.yml so the one piece of real logic here — working
 # out which upgrade-guide sections lie between the major a consumer pins and the
 # current one — is unit-testable without a second major existing. See ADR-013.
 #

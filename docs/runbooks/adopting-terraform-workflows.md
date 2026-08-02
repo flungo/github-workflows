@@ -1,8 +1,8 @@
 # Adopting the Terraform workflows
 
-How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v1`. The workflows hold no secrets — the caller passes them. Repo-specific files (`*.tf`, the `terraform.tf` version pins) stay in the consumer. For the Markdown workflows (which any repo can also adopt), see [`adopting-markdown-workflows.md`](adopting-markdown-workflows.md).
+How a Terraform repo calls `terraform.yml` and `terraform-drift.yml`. Pin `@v2`. The workflows hold no secrets — the caller passes them. Repo-specific files (`*.tf`, the `terraform.tf` version pins) stay in the consumer. For the Markdown workflows (which any repo can also adopt), see [`adopting-markdown-workflows.md`](adopting-markdown-workflows.md).
 
-> **Highly recommended:** also adopt the [version check](adopting-version-check.md) — a one-line opt-in caller that raises an issue in this repo if a future major bump ever leaves it pinning a frozen `@vN`. Especially worth it when this is the first `github-workflows` workflow the repo adopts.
+> **Highly recommended:** also adopt [`flungo-workflows`](adopting-flungo-workflows.md) — a one-line opt-in caller that raises an issue in this repo if a future major bump ever leaves it pinning a frozen `@vN`. Especially worth it when this is the first `github-workflows` workflow the repo adopts.
 
 ## `terraform.yml`
 
@@ -42,7 +42,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: flungo/github-workflows/.github/workflows/terraform.yml@v1
+    uses: flungo/github-workflows/.github/workflows/terraform.yml@v2
     with:
       tf-var-name: TF_VAR_github_token
       operation: ${{ github.event.inputs.operation || 'plan' }}
@@ -86,7 +86,7 @@ A job that `uses:` a reusable workflow can't add steps to it, so anything that m
 ```yaml
 jobs:
   terraform:
-    uses: flungo/github-workflows/.github/workflows/terraform.yml@v1
+    uses: flungo/github-workflows/.github/workflows/terraform.yml@v2
     # ... with/secrets as above ...
 
   inspect:
@@ -119,7 +119,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-    uses: flungo/github-workflows/.github/workflows/terraform-drift.yml@v1
+    uses: flungo/github-workflows/.github/workflows/terraform-drift.yml@v2
     with:
       tf-var-name: TF_VAR_grafana_cloud_access_policy_token
       force_run: ${{ github.event.inputs.force_run == 'true' }}

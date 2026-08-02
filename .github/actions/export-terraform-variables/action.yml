@@ -1,7 +1,7 @@
 # Shared "export the Terraform variables" step for terraform.yml and
 # terraform-drift.yml. A reusable workflow cannot reference this action by a
 # local `./` path (that resolves against the *caller's* checkout), so the
-# workflows check out this repo at ${{ github.job_workflow_sha }} and use the
+# workflows check out this repo at ${{ job.workflow_sha }} and use the
 # action from that checkout — always the same commit as the workflow file
 # itself. See ADR-009.
 name: Export Terraform variables

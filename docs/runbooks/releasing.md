@@ -21,8 +21,9 @@ A change is **breaking** when it would fail an existing caller: renaming or remo
 In the **same PR** as the breaking change:
 
 1. Edit `MAJOR_BRANCH` in `release.yml` — bump it one major, e.g. `v1` → `v2`.
-2. **Update the docs that track the latest version.** Search the repo for `v<old>` — broader than `@v<old>`, so it also catches prose and tables that name the version without the `@`, at the cost of more matches to sift — and bump every reference meant to show consumers the current major (the [README](../../README.md) and the adoption runbooks: [Terraform](adopting-terraform-workflows.md), [Markdown](adopting-markdown-workflows.md)) to the new major. Leave version-specific mentions — historical and migration notes — as they are.
-3. Land the PR as normal.
+2. **Add the new major's section to [`upgrading.md`](../reference/upgrading.md)** — what breaks and what a consumer must do about it, in the same PR as the breaking change while you still hold the context. Breaking changes only; see [ADR-013](../decisions/013-per-major-upgrade-guide.md) for what belongs there and what does not.
+3. **Update the docs that track the latest version.** Search the repo for `v<old>` — broader than `@v<old>`, so it also catches prose and tables that name the version without the `@`, at the cost of more matches to sift — and bump every reference meant to show consumers the current major (the [README](../../README.md) and the adoption runbooks: [Terraform](adopting-terraform-workflows.md), [Markdown](adopting-markdown-workflows.md)) to the new major. Leave version-specific mentions — historical and migration notes — as they are.
+4. Land the PR as normal.
 
 On merge, `release.yml` sees the new name, **creates `v2` at `main`**, and never touches `v1` again — so `@v1` consumers **freeze** on their last compatible commit. Don't pre-create `v2` by hand: creation is restricted to the release App and the push would be rejected (see [Never](#never)). That one-line edit, visible in the PR diff, is the whole "this is a major" decision; there is nothing else to parse or label.
 

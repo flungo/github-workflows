@@ -1,6 +1,7 @@
 # ADR-009: Reference shared composite actions via a workflow-identity checkout
 
-Date: 2026-07-30 Status: Accepted
+- Date: 2026-07-30
+- Status: Accepted
 
 ## Context
 

@@ -1,6 +1,7 @@
 # ADR-003: Version via a moving major branch, advanced automatically
 
-Date: 2026-07-23 Status: Accepted
+- Date: 2026-07-23
+- Status: Accepted
 
 ## Context
 

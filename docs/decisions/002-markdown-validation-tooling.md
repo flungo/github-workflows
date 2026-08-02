@@ -1,6 +1,7 @@
 # ADR-002: Markdown validation tooling
 
-Date: 2026-07-21 Status: Accepted
+- Date: 2026-07-21
+- Status: Accepted
 
 ## Context
 

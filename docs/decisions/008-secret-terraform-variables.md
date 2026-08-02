@@ -1,6 +1,7 @@
 # ADR-008: Inject secret Terraform variables via a masked env-var explosion
 
-Date: 2026-07-29 Status: Accepted
+- Date: 2026-07-29
+- Status: Accepted
 
 ## Context
 

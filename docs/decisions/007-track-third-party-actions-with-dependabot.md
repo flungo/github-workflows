@@ -1,6 +1,7 @@
 # ADR-007: Track third-party actions with Dependabot
 
-Date: 2026-07-26 Status: Accepted
+- Date: 2026-07-26
+- Status: Accepted
 
 ## Context
 

@@ -1,6 +1,7 @@
 # ADR-006: A reusable CI family for the Terraform providers
 
-Date: 2026-07-26 Status: Accepted
+- Date: 2026-07-26
+- Status: Accepted
 
 ## Context
 

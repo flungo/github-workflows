@@ -1,6 +1,7 @@
 # ADR-012: `version-check.yml` becomes `flungo-workflows.yml`, a workflow every adopter runs
 
-Date: 2026-08-02 Status: Accepted
+- Date: 2026-08-02
+- Status: Accepted
 
 ## Context
 

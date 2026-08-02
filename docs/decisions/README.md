@@ -31,8 +31,8 @@ Superseded decisions keep their file and get a note at the top pointing to the n
 ```markdown
 # ADR-NNN: Title
 
-Date: YYYY-MM-DD
-Status: Accepted
+- Date: YYYY-MM-DD
+- Status: Accepted
 
 ## Context
 

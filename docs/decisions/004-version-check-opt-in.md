@@ -1,6 +1,7 @@
 # ADR-004: Notify consumers of a frozen major via an opt-in version-check workflow
 
-Date: 2026-07-24 Status: Accepted
+- Date: 2026-07-24
+- Status: Accepted
 
 > **Renamed by [ADR-012](012-flungo-workflows-meta-workflow.md).**
 > The decision below stands unchanged — opt-in, per-consumer, reporting through an issue in the consumer's own repository — but the workflow it describes moves from `version-check.yml` to `flungo-workflows.yml`, with `version-check` as a job inside it, at the `v2` cut.

@@ -14,7 +14,7 @@ on:
   pull_request: { paths: ['**/*.md', '.markdownlint-cli2.jsonc', '.github/workflows/markdown-lint.yml'] }
   push: { branches: [main], paths: ['**/*.md', '.markdownlint-cli2.jsonc', '.github/workflows/markdown-lint.yml'] }
 jobs:
-  lint:
+  markdown-lint:
     uses: flungo/github-workflows/.github/workflows/markdown-lint.yml@v1
 ```
 
@@ -31,7 +31,7 @@ on:
     - cron: '0 6 * * *'
   workflow_dispatch:
 jobs:
-  links:
+  markdown-links:
     permissions:
       contents: read
       issues: write

@@ -7,7 +7,7 @@ One section per major, newest first. Scope is deliberately narrow — see [ADR-0
 - **Only breaking changes appear here.** A change is breaking when it would fail an existing caller, or when it changes a check context the caller's branch protection may require ([`releasing.md`](../runbooks/releasing.md)).
 - **Non-breaking changes are not recorded.** They reach every consumer automatically on the next merge to the current major, so there is nothing to do about them and nothing to look up. The commit history holds them.
 
-If you are here because the [`version-check`](../runbooks/adopting-version-check.md) job opened an issue in your repository, the section for the major you are moving *to* is what you need.
+If you are here because the [`version-check`](../runbooks/adopting-version-check.md) job opened an issue in your repository, the section for the major you are moving *to* is what you need. That issue is held back for the new major's [7-day grace period](../runbooks/releasing.md#the-grace-period) ([ADR-014](../decisions/014-grace-period-before-prompting-a-new-major.md)), during which its section here may still be revised as the contract settles — so a section you are prompted onto is a finished one.
 
 ## v2
 

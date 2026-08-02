@@ -20,6 +20,8 @@ jobs:
     uses: flungo/github-workflows/.github/workflows/version-check.yml@v1
 ```
 
+**The issue arrives about a week after a major is cut, not the same day.** A new major gets a 7-day grace period in which its contract can still change and nobody is prompted onto it, so the check compares your pins against the newest major that has come *out* of grace — see [ADR-014](../decisions/014-grace-period-before-prompting-a-new-major.md) and [`releasing.md` § The grace period](releasing.md#the-grace-period). If you know a major was just cut and no issue has appeared, that is the check working. Note that your old major stops receiving updates at the cut, so migrating during the window is fine — you are then adopting a contract that may still be corrected in place.
+
 **The `permissions:` block is required** — the check upserts an issue in your repo, so the caller must grant `issues: write` (a reusable workflow's `permissions:` only cap the token). It reads this public repo's majors with the same repo-scoped token, so nothing else is needed.
 
 The reusable job is named **github-workflows version check**, so it reads unambiguously in your repo's checks list — it's a check of *this* upstream repo's version, nothing else.

@@ -6,6 +6,10 @@
 # now-frozen major — opens (and later closes) a single tracking issue in the
 # CONSUMER's own repo. See docs/runbooks/adopting-version-check.md.
 #
+# A freshly cut major has a grace period (GRACE_DAYS below) during which its
+# contract is still settling and nobody is prompted onto it — see
+# docs/decisions/014-grace-period-before-prompting-a-new-major.md.
+#
 # No credentials: it reads this (public) repo's v* branches with the caller's
 # own repo-scoped GITHUB_TOKEN (public repo, so plain read works) and writes the
 # issue in the caller's repo. The caller must grant `issues: write` (a reusable
@@ -68,10 +72,44 @@ jobs:
             }
             const latest = Math.max(...majors);
 
-            // 3. Any pinned major below the latest is frozen.
-            const stale = [...pinned.entries()].filter(([maj]) => maj < latest).sort();
+            // 3. Grace period. For GRACE_DAYS after a major is cut its contract
+            //    is still settling — it may take further breaking changes in
+            //    place — so consumers are not prompted onto it yet (ADR-014).
+            //    Nothing records when a branch was created, so the cut is dated
+            //    from the OLDEST commit v<latest> has that v<latest-1> does not:
+            //    the merge that bumped MAJOR_BRANCH, which is the commit
+            //    release.yml created the branch at. Comparing against the
+            //    previous major (rather than reading v<latest>'s tip) keeps that
+            //    date fixed as the new major advances, and survives a backport
+            //    landing on the old one.
+            const GRACE_DAYS = 7;
+            let cutAt = null;
+            if (majors.includes(latest - 1)) {
+              try {
+                const { data: cmp } = await github.rest.repos.compareCommitsWithBasehead({
+                  owner: pOwner, repo: pRepo, basehead: `v${latest - 1}...v${latest}`, per_page: 1,
+                });
+                const cut = cmp.commits[0]?.commit?.committer?.date;
+                if (cut) cutAt = new Date(cut);
+              } catch (e) {
+                core.warning(`Could not date the v${latest} cut: ${e.message}`);
+              }
+            }
+            // Undatable (no previous major, no commits, API error) counts as
+            // spent: a prompt that comes early beats one that never comes.
+            const graceEnds = cutAt && new Date(cutAt.getTime() + GRACE_DAYS * 86400000);
+            const inGrace = Boolean(graceEnds) && graceEnds > new Date();
+            const day = d => d.toISOString().slice(0, 10);
+            // The major consumers are prompted onto: the newest one out of grace.
+            const current = inGrace ? latest - 1 : latest;
+            if (inGrace) {
+              core.notice(`v${latest} was cut on ${day(cutAt)} and is inside its ${GRACE_DAYS}-day grace period (until ${day(graceEnds)}); checking against v${current} until then.`);
+            }
 
-            // 4. Upsert / close one tracking issue in the caller's repo.
+            // 4. Any pinned major below the current one is frozen.
+            const stale = [...pinned.entries()].filter(([maj]) => maj < current).sort();
+
+            // 5. Upsert / close one tracking issue in the caller's repo.
             const open = await github.paginate(github.rest.issues.listForRepo, {
               owner, repo, state: 'open', labels: label, per_page: 100,
             });
@@ -79,18 +117,22 @@ jobs:
 
             if (stale.length > 0) {
               const lines = stale.map(([maj, set]) =>
-                `- \`@v${maj}\` (frozen) in ${[...set].sort().map(f => `\`${f}\``).join(', ')} → migrate to \`@v${latest}\``);
+                `- \`@v${maj}\` (frozen) in ${[...set].sort().map(f => `\`${f}\``).join(', ')} → migrate to \`@v${current}\``);
               const body = [
                 marker,
-                `\`${pOwner}/${pRepo}\` has published **v${latest}**, but this repo still pins an older, now-frozen major:`,
+                `\`${pOwner}/${pRepo}\` has published **v${current}**, but this repo still pins an older, now-frozen major:`,
                 '',
                 ...lines,
                 '',
-                `A frozen major receives no further updates. Bump the caller \`uses: …@vN\` refs to \`@v${latest}\` once you've accommodated the breaking change — see ${pOwner}/${pRepo} \`docs/runbooks/releasing.md\`.`,
+                `A frozen major receives no further updates. Bump the caller \`uses: …@vN\` refs to \`@v${current}\` once you've accommodated the breaking change — see ${pOwner}/${pRepo} \`docs/runbooks/releasing.md\`.`,
+                ...(inGrace ? [
+                  '',
+                  `\`v${latest}\` has also been published, but it is inside its ${GRACE_DAYS}-day grace period until ${day(graceEnds)} — its contract can still change, so migrate to \`@v${current}\` for now. This issue moves on to \`@v${latest}\` once that passes.`,
+                ] : []),
                 '',
-                '_Raised by the opt-in `version-check` workflow; it closes this issue automatically once every ref is on the latest major._',
+                '_Raised by the opt-in `version-check` workflow; it closes this issue automatically once no ref is on a frozen major._',
               ].join('\n');
-              const title = `Pinned ${pRepo} major is frozen — v${latest} available`;
+              const title = `Pinned ${pRepo} major is frozen — v${current} available`;
               if (existing) {
                 await github.rest.issues.update({ owner, repo, issue_number: existing.number, title, body });
                 core.notice(`Updated migration issue #${existing.number}.`);
@@ -101,10 +143,14 @@ jobs:
             } else if (existing) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: existing.number,
-                body: `All \`${pOwner}/${pRepo}\` refs are on the latest major (v${latest}) — closing.`,
+                body: inGrace
+                  ? `No \`${pOwner}/${pRepo}\` ref is on a frozen major (\`v${latest}\` is inside its ${GRACE_DAYS}-day grace period until ${day(graceEnds)}) — closing.`
+                  : `All \`${pOwner}/${pRepo}\` refs are on the latest major (v${latest}) — closing.`,
               });
               await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
               core.info(`Closed migration issue #${existing.number}.`);
+            } else if (inGrace) {
+              core.info(`Up to date: all pins on v${current} or later; v${latest} is inside its grace period.`);
             } else {
               core.info(`Up to date: all pins on the latest major (v${latest}).`);
             }

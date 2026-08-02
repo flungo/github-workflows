@@ -1,6 +1,7 @@
 # ADR-005: Extend the Terraform workflow via a published plan artifact
 
-Date: 2026-07-24 Status: Accepted
+- Date: 2026-07-24
+- Status: Accepted
 
 ## Context
 

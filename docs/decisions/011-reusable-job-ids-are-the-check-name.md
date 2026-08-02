@@ -1,6 +1,7 @@
 # ADR-011: A reusable job's ID is its check name
 
-Date: 2026-08-02 Status: Accepted
+- Date: 2026-08-02
+- Status: Accepted
 
 ## Context
 

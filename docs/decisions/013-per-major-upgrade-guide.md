@@ -1,6 +1,7 @@
 # ADR-013: A per-major upgrade guide, scoped to breaking changes only
 
-Date: 2026-08-02 Status: Accepted
+- Date: 2026-08-02
+- Status: Accepted
 
 ## Context
 

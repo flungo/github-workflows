@@ -1,6 +1,7 @@
 # ADR-001: Centralised reusable workflows
 
-Date: 2026-07-21 Status: Accepted
+- Date: 2026-07-21
+- Status: Accepted
 
 > **Revised by [ADR-003](003-version-via-moving-v1-branch.md):** the versioning mechanism below (a moving `v1` **tag**) is superseded by a moving `v1` **branch**.
 > Consumers still pin `@v1`; only how the ref advances changed.

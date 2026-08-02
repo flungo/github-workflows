@@ -1,6 +1,7 @@
 # ADR-010: A caller's job ID matches the reusable workflow's filename
 
-Date: 2026-08-02 Status: Accepted
+- Date: 2026-08-02
+- Status: Accepted
 
 ## Context
 

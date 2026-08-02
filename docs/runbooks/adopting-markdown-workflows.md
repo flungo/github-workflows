@@ -94,6 +94,53 @@ Nor does a clean run hide a missing `issues: write` grant.
 Because the reusable workflow requests that permission, a caller that does not grant it fails at startup — see [§ `markdown-links.yml`](#markdown-linksyml) above — so a dispatch that runs at all has already proved the grant is adequate.
 What is genuinely per-repo is the URL set and the token, and one clean dispatch exercises both.
 
+## Adopting in a repository managed by `terraform-github`
+
+Every `flungo`-owned repository is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), and its `standard-repository` module has a `markdown` flag meaning **"this repository follows Fabrizio's Markdown standards"** — that is, it calls the two workflows above under the conventional names.
+The flag provisions the secret the external sweep reads and requires the checks the two workflows report — so what you name your calling jobs is not a local style choice there, it is a cross-repository contract.
+
+**Name the calling jobs after the workflows they call, or the flag does not fit.**
+
+A check's context is `<caller job id> / <reusable job id>`, and `terraform-github` hardcodes two strings:
+
+| Caller | Context it must report |
+| --- | --- |
+| `markdown-lint.yml`, job `markdown-lint` | `markdown-lint / lint` |
+| `markdown-links.yml`, job `markdown-links` | `markdown-links / internal` |
+
+Both halves follow published conventions rather than being arbitrary: the caller half is the workflow's filename ([ADR-010](../decisions/010-caller-job-ids-match-the-workflow-filename.md)) and the reusable half is the job's ID ([ADR-011](../decisions/011-reusable-job-ids-are-the-check-name.md)), so a caller copied from the snippets at the top of this page already fits.
+
+> A consumer still pinned to `@v1` reports the pre-`v2` names — `markdown-lint / markdownlint` and `markdown-links / Internal links & anchors` — and cannot satisfy the flag until it migrates.
+> `v1` is frozen, so migrating is the only way forward: see [`upgrading.md` § v2](../reference/upgrading.md#v2).
+> Every repository in the fleet has already made that move, so this applies only to a consumer outside it.
+
+The external sweep's `markdown-links / external` is **not** required and must not be added: it self-skips on `pull_request`, which is the whole point of reporting through an issue instead.
+
+**The flag defaults to `true`**, so an established repository needs no edit in `terraform-github` at all — adopting the workflows is enough, and the flag is already asserting that you have.
+What it does is attach `LYCHEE_GITHUB_TOKEN` and add the two contexts above to the repository's required status checks.
+
+The exception is a repository being **created**: it has no callers yet, so `terraform-github`'s creation runbook sets `markdown = false` on the create.
+Adopting the workflows there means deleting that line in the same pull request that adds the callers.
+
+### Either order works, and workflows-first is usually kinder
+
+Unlike the [Terraform flag](adopting-terraform-workflows.md#order-the-two-changes-flag-first), which has to land first because its workflow cannot run at all without the secret, neither *blocking* Markdown check reads a secret.
+Only the scheduled external sweep needs `LYCHEE_GITHUB_TOKEN`.
+
+So the callers can land here first and the flag follow, which leaves any pull requests already open against the repository unblocked in the meantime.
+Flag-first also works — a `pull_request` run uses the workflow file from **the pull request's own head**, so the pull request that adds the callers reports the contexts and satisfies its own requirement — but it queues every other open pull request behind it until they rebase.
+
+One caveat on landing the callers first: verify the external sweep by `workflow_dispatch` only **after** `LYCHEE_GITHUB_TOKEN` exists, whether it was provisioned by the flag or by hand.
+A tokenless dispatch floods the auto-issue with cross-repo 404s that are token artifacts rather than dead links — see § Adoption pitfalls below.
+
+### The checks are strict: merging needs an up-to-date branch
+
+For most repositories adopting these workflows, these will be their **first** required checks — which means the flag also brings the up-to-date-branch requirement ([`terraform-github` ADR-011](https://github.com/flungo/terraform-github/blob/main/docs/decisions/011-strict-required-status-checks.md) — not to be confused with this repository's own ADR-011 above) into force for the first time.
+It is encoded in the branch-protection module rather than exposed, so it arrives with the required checks and cannot be declined separately.
+
+In practice: every merge to the default branch leaves the other open pull requests out of date, and each must be brought forward and re-run before it can merge in turn.
+GitHub's **Update branch** button appears once this is in force; its **Update with rebase** option is the linear-history-preserving one, and the one to use here.
+
 ## Optional — automated adoption with Fabrizio's conventions
 
 Everything above is the workflows' contract, and a repo can stop there: it is fully adoptable by hand, without taking on anyone's house style.

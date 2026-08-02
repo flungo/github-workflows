@@ -437,15 +437,22 @@ ALWAYS_IGNORED = (".git", "node_modules")
 
 
 def _matches(path: str, pattern: str) -> bool:
-    """fnmatch, extended the two ways an ignore pattern is normally meant.
+    """fnmatch, with gitignore's anchoring rule and directory shorthand.
 
-    A pattern naming a directory covers everything beneath it, and an
-    unanchored pattern matches at any depth — so `node_modules` and `docs/**`
-    both do what they look like they do.
+    A pattern naming a directory covers everything beneath it. Anchoring
+    follows gitignore: a pattern **containing a slash** is relative to the
+    scan root, while a bare name matches at any depth — so `node_modules`
+    catches every one, and `docs/generated` catches only the top-level one
+    rather than any directory that happens to end that way.
+
+    The distinction is load-bearing, not cosmetic: `markdown-sembr.yml` drops
+    this repo's own checkout into the caller's workspace, so a caller ignoring
+    `docs/x` must not thereby also ignore `.github-workflows/docs/x` and mask
+    whether that checkout is being excluded at all.
     """
     pattern = pattern.rstrip("/")
     candidates = [pattern, pattern + "/*", pattern + "/**"]
-    if not pattern.startswith("**/"):
+    if "/" not in pattern:
         candidates += ["**/" + pattern, "**/" + pattern + "/*"]
     return any(fnmatch(path, candidate) for candidate in candidates)
 

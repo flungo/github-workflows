@@ -348,6 +348,22 @@ class CollectFilesTest(unittest.TestCase):
             sembr_check.collect_files(["**/*.md"], ["docs", ".github"]), ["vendor/c.md"]
         )
 
+    def test_a_bare_name_is_ignored_at_any_depth(self):
+        # gitignore semantics: no slash, so it matches wherever it appears.
+        self.assertEqual(
+            sembr_check.collect_files(["**/*.md"], ["nested", ".github"]),
+            ["docs/a.md", "vendor/c.md"],
+        )
+
+    def test_a_pattern_with_a_slash_is_anchored_to_the_root(self):
+        # The property markdown-sembr.yml depends on: a caller ignoring its own
+        # `docs/nested` must NOT thereby ignore a same-named path inside the
+        # checkout this repo drops in the workspace, or the exclusion of that
+        # checkout stops being observable.
+        self.assertTrue(sembr_check._matches("docs/nested/b.md", "docs/nested"))
+        self.assertFalse(sembr_check._matches(".github-workflows/docs/nested/b.md", "docs/nested"))
+        self.assertTrue(sembr_check._matches(".github-workflows/docs/nested/b.md", ".github-workflows"))
+
     def test_explicit_glob_narrows_the_tree(self):
         self.assertEqual(sembr_check.collect_files(["docs/*.md"], []), ["docs/a.md"])
 

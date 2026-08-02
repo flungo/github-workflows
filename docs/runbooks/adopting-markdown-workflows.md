@@ -60,8 +60,8 @@ No secrets or permissions; both inputs have working defaults.
 ```yaml
 name: Markdown semantic line breaks
 on:
-  pull_request: { paths: ['**/*.md', '.github/workflows/markdown-sembr.yml'] }
-  push: { branches: [main], paths: ['**/*.md', '.github/workflows/markdown-sembr.yml'] }
+  pull_request:
+  push: { branches: [main] }
 jobs:
   markdown-sembr:
     uses: flungo/github-workflows/.github/workflows/markdown-sembr.yml@v2

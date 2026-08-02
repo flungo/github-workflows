@@ -64,6 +64,47 @@ jobs:
           [ "$TF_VAR_environment" = "self-test" ]
           [ "$TF_VAR_replica_count" = "3" ]
 
+  version-check-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Colocated tests (test.sh)
+        run: |
+          set -eu
+          # The rejection paths print ::error:: on purpose; suspend
+          # workflow-command processing so a passing run doesn't collect
+          # failure annotations.
+          resume_token="action-tests-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "::stop-commands::$resume_token"
+          if .github/actions/version-check-issue/test.sh; then
+            echo "::$resume_token::"
+          else
+            echo "::$resume_token::"
+            echo "::error::version-check-issue test.sh failed"
+            exit 1
+          fi
+
+      # Fake majors, so this proves the wiring without a second major existing.
+      - name: Wiring smoke test
+        id: smoke
+        uses: ./.github/actions/version-check-issue
+        with:
+          stale: '[{"major":1,"files":["self-test.yml"]}]'
+          latest: '3'
+          guide-url: https://example.invalid/upgrading.md
+
+      - name: Assert the wired outputs
+        env:
+          TITLE: ${{ steps.smoke.outputs.title }}
+          BODY: ${{ steps.smoke.outputs.body }}
+        run: |
+          set -eu
+          [ "$TITLE" = "Pinned github-workflows major is frozen — v3 available" ]
+          printf '%s' "$BODY" | grep -qF -- '](https://example.invalid/upgrading.md#v2)'
+          printf '%s' "$BODY" | grep -qF -- '](https://example.invalid/upgrading.md#v3)'
+          printf '%s' "$BODY" | grep -qF -- 'self-test.yml'
+
   coverage:
     runs-on: ubuntu-latest
     steps:

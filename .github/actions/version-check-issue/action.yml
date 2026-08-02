@@ -1,0 +1,58 @@
+# Builds the version-check migration issue's title and body, including the
+# ordered upgrade-guide links a consumer needs to cross the majors between the
+# one it pins and the current one (ADR-013).
+#
+# Split out of version-check.yml because that span is the only non-trivial logic
+# in the job — it can be wrong at either end and in its ordering — and a
+# composite action is what makes it unit-testable, per ADR-009. A reusable
+# workflow cannot reference this by a local `./` path, so the workflow checks
+# out this repo at ${{ job.workflow_sha }} and uses the action from that
+# checkout — always the same commit as the workflow file itself.
+name: Version check issue
+description: >-
+  Build the title and body of the tracking issue the version-check job opens in
+  a consumer's repository, linking each upgrade guide section between the
+  consumer's oldest pinned major and the current one.
+inputs:
+  stale:
+    description: >-
+      JSON array of the consumer's frozen pins — [{"major": <int>, "files":
+      [<string>, ...]}, ...]. An empty array is the up-to-date case and yields
+      empty outputs rather than an error.
+    default: '[]'
+  latest:
+    description: The current major published by the producer, as a bare integer (e.g. 2).
+    required: true
+  producer:
+    description: The producer repository, owner/name.
+    default: flungo/github-workflows
+  guide-url:
+    description: Base URL of the upgrade guide; section anchors (#vN) are appended.
+    default: https://github.com/flungo/github-workflows/blob/main/docs/reference/upgrading.md
+  marker:
+    description: Hidden HTML comment used to find this issue again on later runs.
+    default: '<!-- github-workflows-version-check -->'
+outputs:
+  marker:
+    description: >-
+      The marker embedded in the body — echoed back so the caller searches for
+      the same string this action wrote, rather than keeping its own copy.
+    value: ${{ steps.build.outputs.marker }}
+  title:
+    description: Issue title, or empty when nothing is stale.
+    value: ${{ steps.build.outputs.title }}
+  body:
+    description: Issue body, or empty when nothing is stale.
+    value: ${{ steps.build.outputs.body }}
+runs:
+  using: composite
+  steps:
+    - id: build
+      shell: bash
+      env:
+        STALE_JSON: ${{ inputs.stale }}
+        LATEST: ${{ inputs.latest }}
+        PRODUCER: ${{ inputs.producer }}
+        GUIDE_URL: ${{ inputs.guide-url }}
+        MARKER: ${{ inputs.marker }}
+      run: '"$GITHUB_ACTION_PATH/build.sh"'

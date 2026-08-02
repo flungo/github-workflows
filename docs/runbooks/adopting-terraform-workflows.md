@@ -115,7 +115,7 @@ on:
     inputs:
       force_run: { description: Run even if paused, type: boolean, default: false }
 jobs:
-  drift:
+  terraform-drift:
     permissions:
       contents: read
       issues: write
@@ -139,7 +139,8 @@ Setting it provisions the secrets those workflows read and requires the check th
 **Name things conventionally, or the flag does not fit.**
 
 - **The calling job must be named `terraform`.**
-  A check's context is `<caller job id> / <reusable job id>`, so this caller reports `terraform / terraform` — the string `terraform-github` requires.
+  A check's context is `<caller job id> / <reusable job name>`, so this caller reports `terraform / terraform` — the string `terraform-github` requires.
+  That is the general convention rather than a special case: a caller's job ID is the reusable workflow's filename without `.yml` ([ADR-010](../decisions/010-caller-job-ids-match-the-workflow-filename.md)), which `terraform.yml` → `terraform` already satisfied.
   A caller job named anything else reports a different context, and the required check would never be satisfied.
 - **Use the conventional secret names** — `TF_TOKEN_APP_TERRAFORM_IO` for the HCP backend, and the repository's own provider-token secret for `provider_token`.
   `terraform-github` creates the former; it cannot create a secret the caller then reads under a different name.

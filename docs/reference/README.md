@@ -1,6 +1,8 @@
 # Reference
 
-Information-oriented lookup docs — descriptive, not procedural. If it has no steps and exists to be looked up, it goes here. Contrast [`../runbooks/`](../runbooks/) (repeatable how-to guides) and [`../decisions/`](../decisions/) (ADRs).
+Information-oriented lookup docs — descriptive, not procedural.
+If it has no steps and exists to be looked up, it goes here.
+Contrast [`../runbooks/`](../runbooks/) (repeatable how-to guides) and [`../decisions/`](../decisions/) (ADRs).
 
 | Document | Purpose |
 | --- | --- |

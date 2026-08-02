@@ -1,6 +1,8 @@
 # github-workflows
 
-Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories. Instead of each repo copy-pasting (and silently drifting) its CI, repos call these reusable workflows and pin the moving `@v2` branch. Fix or improve a workflow once here; merging to `main` advances `v2` automatically and every consumer follows.
+Reusable GitHub Actions workflows and shared CI standards for `flungo`'s repositories.
+Instead of each repo copy-pasting (and silently drifting) its CI, repos call these reusable workflows and pin the moving `@v2` branch.
+Fix or improve a workflow once here; merging to `main` advances `v2` automatically and every consumer follows.
 
 Three families:
 
@@ -23,7 +25,8 @@ Three families:
 
 ## Using them
 
-A consumer repo calls a workflow and passes its own inputs and secrets. Pin to the moving major branch (`@v2`):
+A consumer repo calls a workflow and passes its own inputs and secrets.
+Pin to the moving major branch (`@v2`):
 
 ```yaml
 jobs:
@@ -35,7 +38,8 @@ jobs:
 
 See the adopting runbooks for every workflow's inputs, secrets, and a copy-paste caller: [Terraform](docs/runbooks/adopting-terraform-workflows.md), [Provider](docs/runbooks/adopting-terraform-provider-workflows.md), [Markdown](docs/runbooks/adopting-markdown-workflows.md).
 
-**Every consumer should also adopt [`flungo-workflows`](docs/runbooks/adopting-flungo-workflows.md)** — a one-line, credential-free opt-in caller whose `version-check` job raises an issue in the consumer's own repo if a future major bump ever leaves it pinning a frozen `@vN`. Recommended for every repo that pins these workflows.
+**Every consumer should also adopt [`flungo-workflows`](docs/runbooks/adopting-flungo-workflows.md)** — a one-line, credential-free opt-in caller whose `version-check` job raises an issue in the consumer's own repo if a future major bump ever leaves it pinning a frozen `@vN`.
+Recommended for every repo that pins these workflows.
 
 ## Standards & rationale
 
@@ -46,4 +50,7 @@ See the adopting runbooks for every workflow's inputs, secrets, and a copy-paste
 
 ## Versioning
 
-Consumers pin `@v2` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)). Every merge to `main` runs [`release.yml`](.github/workflows/release.yml), which fast-forwards `v2` to `main`, so consumers following `@v2` pick fixes up automatically. A breaking change cuts a new major branch (`v3`) by bumping `MAJOR_BRANCH` in that workflow — see [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md). This repo's own workflows and docs are validated on every PR by [`ci.yml`](.github/workflows/ci.yml) (actionlint plus the repo's own Markdown workflows).
+Consumers pin `@v2` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)).
+Every merge to `main` runs [`release.yml`](.github/workflows/release.yml), which fast-forwards `v2` to `main`, so consumers following `@v2` pick fixes up automatically.
+A breaking change cuts a new major branch (`v3`) by bumping `MAJOR_BRANCH` in that workflow — see [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md).
+This repo's own workflows and docs are validated on every PR by [`ci.yml`](.github/workflows/ci.yml) (actionlint plus the repo's own Markdown workflows).

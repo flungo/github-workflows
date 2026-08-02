@@ -1,6 +1,8 @@
 # Architecture Decision Records
 
-Decisions are numbered sequentially and never deleted or renumbered. Each file documents the context, decision, and consequences for a key architectural choice. Superseded decisions keep their file and get a note at the top pointing to the newer ADR.
+Decisions are numbered sequentially and never deleted or renumbered.
+Each file documents the context, decision, and consequences for a key architectural choice.
+Superseded decisions keep their file and get a note at the top pointing to the newer ADR.
 
 | # | Title | Status | Summary |
 | --- | --- | --- | --- |

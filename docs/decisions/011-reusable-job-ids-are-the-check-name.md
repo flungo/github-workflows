@@ -116,4 +116,4 @@ It is outweighed because the audience differs. The prose name serves someone gla
 - **Every consumer must migrate `@v1` → `@v2`**, which is the cost of any major and is exactly what the version-check workflow exists to surface.
 - **Prose check names are lost.** Accepted, per the reasoning above.
 - **`v1` freezes.** Anything wanted on both lines needs a second pull request targeting `v1`, per `releasing.md`.
-- **Any unrecorded plan for `v2` moves to `v3`.** Nothing is recorded, so this is believed to be free — but it is an assumption, and if a breaking change was being held informally it should ride this major or be renumbered deliberately.
+- **The previously scoped `v2` becomes `v3`.** [`docs/plans/v2-cut.md`](https://github.com/flungo/github-workflows/pull/27) and its five breaking items are renumbered rather than dropped, per the reasoning above. Any breaking change being held informally should likewise ride this major or be renumbered deliberately.

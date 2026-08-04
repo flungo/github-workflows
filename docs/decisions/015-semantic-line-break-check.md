@@ -5,7 +5,7 @@
 
 ## Context
 
-[ADR-002](002-markdown-validation-tooling.md) picked the Markdown tooling, and [`markdown-validation.md`](../reference/markdown-validation.md#markdownlint-rules-that-need-a-deliberate-choice) records the resulting pairing: `MD013` (line-length) is turned **off**, and the convention that replaces it is one sentence per source line — [semantic line breaks](https://sembr.org/).
+[ADR-002](002-markdown-validation-tooling.md) picked the Markdown tooling, and [`markdown-validation.md`](../reference/markdown-validation.md#fabrizios-markdownlint-rule-choices) records the resulting pairing: `MD013` (line-length) is turned **off**, and the convention that replaces it is one sentence per source line — [semantic line breaks](https://sembr.org/).
 That page is explicit that nothing enforces the second half: Prettier declined sentence detection as too hard across languages, markdownlint has no reflow rule, so the convention rests on authors remembering it.
 The `markdown-standards` plugin ships [`reflow.py`](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/scripts/reflow.py) to migrate a repo's existing prose in one pass, but that is a one-time tool: a repo that runs it drifts straight back out of shape on the next pull request.
 

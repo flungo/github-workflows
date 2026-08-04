@@ -128,7 +128,7 @@ All three take seconds, so running them on everything costs little and keeps the
 Both files are **repo-specific — regenerate them, don't copy another repo's**:
 
 - **`.markdownlint-cli2.jsonc`** — the markdownlint rules, which are the **adopting repo's choice**; the workflow imposes none.
-  A few rules interact with how a repo writes prose and are worth deciding deliberately rather than inheriting — see [`markdown-validation.md`](../reference/markdown-validation.md#markdownlint-rules-that-need-a-deliberate-choice).
+  A few rules interact with how a repo writes prose and are worth deciding deliberately rather than inheriting — see [`markdown-validation.md § Fabrizio's markdownlint rule choices`](../reference/markdown-validation.md#fabrizios-markdownlint-rule-choices) for the calls he has made and the reasoning behind each.
   Give each override an inline justification.
 - **`.lycheeignore`** — URLs that legitimately 403/404 while unauthenticated.
   Seed it with an explanatory header and populate it from that repo's own first `workflow_dispatch` run — never copy another repo's entries.

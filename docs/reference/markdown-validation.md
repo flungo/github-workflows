@@ -1,7 +1,7 @@
 # The Markdown validation standard
 
 Three reusable workflows that validate Markdown.
-They are **not Terraform-specific** — any repo with a `docs/` tree (or Markdown anywhere) can adopt them, and most `flungo` repos should.
+Any repo with Markdown anywhere can adopt them — they care about `.md` files and nothing else about the repo.
 For caller snippets and the step-by-step adoption procedure, see [`adopting-markdown-workflows.md`](../runbooks/adopting-markdown-workflows.md).
 For *why* these tools were chosen, see [ADR-002](../decisions/002-markdown-validation-tooling.md) and [ADR-015](../decisions/015-semantic-line-break-check.md).
 
@@ -24,9 +24,94 @@ The third, `markdown-sembr.yml`, enforces a prose convention, so it is adopted o
   **Opt-in by adoption** — it is the only Markdown workflow that imposes a prose style.
   Inputs `globs` and `ignore`; no secrets or permissions.
 
+## What each one is worth
+
+Each check turns a property otherwise left to diligence into something a build fails over: linting and semantic line breaks protect the *file* — that it parses as meant, and that it reads like every other one — while link checking protects what it *points at*.
+
+### Lint and sembr — valid Markdown, and a diff that is the change
+
+`markdown-lint.yml` does two separate things, and the obvious one comes first: it checks the Markdown is **valid** — well-formed enough that any parser renders what the author meant, rather than what a stray indent, an unclosed emphasis or a missing blank line turned it into.
+The second depends on which rules the caller enables.
+Chosen well, they are exactly the stylistic conventions that produce the consistency described below; `markdown-sembr.yml` then adds the one such convention markdownlint has no rule for.
+Together they mean every document is written the same way, whoever or whatever wrote it.
+
+The payoff is not tidiness.
+It is that a new document arrives in the shape of the existing ones, and an edit to an existing one shows up as *the sentence, the cell, or the list item that changed* — with no reformatting churn wrapped around it.
+A reviewer reads content; a review comment lands on a line that means something; a blame points at the change that introduced the words.
+Without it, the same edit arrives as a reflowed paragraph or a repadded table, and the actual change has to be excavated from the noise.
+
+That property comes from pairings, not from a rule setting alone — each machine-checkable rule covers half of it, and a prose convention covers the rest.
+Both halves are spelled out in [§ Fabrizio's markdownlint rule choices](#fabrizios-markdownlint-rule-choices), which is also where the reasoning is laid out for a repo deciding for itself.
+
+### Links — a break is a staleness alarm
+
+`markdown-links.yml` stops dead links accumulating: the internal job on every PR for links within the repo, the scheduled external sweep for everything beyond it.
+Left unchecked, both rot silently — a rename breaks a relative link in a file nobody touched, a linked page moves and no one notices until a reader follows it.
+
+Its second effect is the one worth adopting it for.
+Paired with the [cross-referencing rules](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/skills/markdown-standards/references/cross-references.md) — which require that renaming or moving anything is followed by updating every reference to it — a link failure is rarely *just* a broken link.
+Something that was described elsewhere has changed, so the prose around the link is now describing the old thing.
+The check turns that into a red build the same day rather than a discovery months later, for a human and an agent alike, which is why the paired remediation rule is to fix the link or its target and never to ignore-list the check into passing.
+
+## Tool selection
+
+lychee (Rust) does all link + anchor resolution — internal and external; markdownlint-cli2 does style.
+remark-validate-links is the documented fallback if lychee's slugger ever diverges from GitHub's.
+The full rationale and rejected alternatives are in [ADR-002](../decisions/002-markdown-validation-tooling.md).
+
+## Fabrizio's markdownlint rule choices
+
+This workflow imposes **no** rules — the caller's `.markdownlint-cli2.jsonc` is entirely the adopting repo's.
+
+Four rules are ones Fabrizio has made a deliberate call on rather than left to a default, because each is half of a pair: the machine-checkable setting, plus a human convention the tool can't enforce.
+Both halves ship in the [`markdown-standards` plugin](https://github.com/flungo/claude-plugins/tree/main/plugins/markdown-standards) for repos that want them — the settings and the conventions that pair with them are its [prose conventions](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/skills/markdown-standards/references/prose-conventions.md) reference.
+The trade-offs are below so another repo can weigh the same evidence and land somewhere else.
+
+- **`MD013` (line-length) — off, in favour of semantic line breaks.**
+  A character ceiling is the wrong tool for prose consistency: it only caps, it can't reflow, and 80 columns is archaic.
+  The convention is one sentence per source line, which Markdown renders as one paragraph — for sentence-scoped diffs and review comments, and no paragraph-wide reflow churn when a sentence changes.
+  No general-purpose formatter enforces one-sentence-per-line (Prettier declined it — cross-language sentence detection is too hard — and markdownlint has no reflow rule), so the bulk of it stays a convention, with `MD013` off so nothing fights it.
+  Its one MUST rule *is* enforceable, and [`markdown-sembr.yml`](#semantic-line-breaks-markdown-sembryml) enforces that much; the rest still rests on the author.
+  ("Semantic line breaks" / "ventilated prose" — see <https://sembr.org/> — has no universal consensus; adopted for the diff and review benefits.)
+- **`MD024` (no-duplicate-heading) — `siblings_only`, trading strictness for repeatable subsection names.**
+  `siblings_only` lets docs repeat subsection names (e.g. `Context` / `Decision` / `Consequences` across ADRs, or `Symptom` / `Root cause` across incidents) under different parents.
+  The paired convention: give any heading you cross-reference a unique name — see [§ Duplicate headings and anchor ambiguity](#duplicate-headings-and-anchor-ambiguity-md024-siblings_only) for the gap it closes.
+- **`MD060` (table-column-style) — pinned to `"compact"`, because the default is ambiguous.**
+  `"consistent"` infers the style per table, so a table where no row disambiguates — cells all different widths — infers `"aligned"` (every cell padded out to its column's widest) while the rest of the repo is `"compact"` (one space each side of every pipe).
+  Pin one.
+  The argument for `"compact"` is the same as the one for turning `MD013` off: a diff should be the size of the change.
+  Under `"aligned"` cell width is shared state, so editing one cell reflows the whitespace of every row and a one-word change arrives as a whole-table diff — and a single long cell taxes every other row with padding for as long as it stays.
+  Compact has no such coupling: a cell's source is its own content, so the diff names the row that changed.
+  Two lesser points fall out the same way — `markdownlint-cli2 --fix` produces compact but will not pad to alignment, so an inferred-aligned table becomes hand editing; and aligned tables stop being readable in source as soon as one cell is long.
+- **`MD028` (no-blanks-blockquote) — left enabled, because the fix is a judgement call.**
+  Two blockquotes separated by only a blank line are two *separate* blockquotes in CommonMark/GFM (the blank line ends the first), but the split is parser-ambiguous, so `MD028` flags it.
+  The paired convention: fix to match intent — `>` on the blank line to make one blockquote; to keep two distinct ones, prefer a connecting sentence between them where one flows naturally, else an invisible `<!-- -->` separator (never manufacture filler just to avoid the comment); and never collapse distinct notes into one just to silence the rule.
+
+## Duplicate headings and anchor ambiguity (MD024 `siblings_only`)
+
+`MD024` is set to `siblings_only` so docs can repeat subsection names under different parents.
+That leaves one narrow gap in the "someone adds a duplicate of a heading that was already linked" risk:
+
+| Case | Link outcome | Caught by |
+| --- | --- | --- |
+| New duplicate is a **sibling** (same parent) | — | **MD024 `siblings_only`** blocks it |
+| Non-sibling, added **after** the linked heading | still correct | no breakage |
+| Non-sibling, added **before** the linked heading | silently redirects to the new heading | **neither** (anchor still resolves) |
+| Heading renamed / removed / typo'd | dangles | **lychee** (`Cannot find fragment`) |
+
+lychee replicates GitHub's stateful suffixing — two `## Symptom` headings resolve as `#symptom` and `#symptom-1`, and `#symptom-2` is flagged — but it is existence-only, so it has **no** way to flag an *ambiguous* base-slug link, and `--include-fragments` has no strict/ambiguity mode.
+The only built-in lever that removes the ambiguity entirely is `MD024` **without** `siblings_only` (disallow all duplicate headings) — the opposite trade-off, which would force prefixing every repeated subsection.
+
+**The convention that closes it:** give any heading you cross-reference a **unique** name; repeat heading text only where it is not a link target.
+(This is one of the [cross-referencing rules](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/skills/markdown-standards/references/cross-references.md) the `markdown-standards` plugin encodes.)
+That structurally closes the one residual gap (a non-sibling duplicate inserted before a linked heading).
+
+**A possible future improvement, not built:** to close that gap with tooling instead of convention, a custom markdownlint rule (JS) or a small CI script could flag any internal link whose base slug belongs to a heading that appears more than once in the target file.
+Left as an optional enhancement — the convention above suffices, and it is added maintenance for a narrow case.
+
 ## Semantic line breaks (`markdown-sembr.yml`)
 
-The pairing that turns `MD013` off (see [§ markdownlint rules that need a deliberate choice](#markdownlint-rules-that-need-a-deliberate-choice)) replaces a character ceiling with a convention: one sentence per source line.
+The pairing that turns `MD013` off (see [§ Fabrizio's markdownlint rule choices](#fabrizios-markdownlint-rule-choices)) replaces a character ceiling with a convention: one sentence per source line.
 `markdown-sembr.yml` is the half of that pairing a tool can hold up.
 The `markdown-standards` plugin's [`reflow.py`](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/scripts/reflow.py) migrates a repo's existing prose in one pass; this keeps it there.
 
@@ -85,63 +170,14 @@ Prefer a suppression comment over widening `ignore`, and prefer fixing the prose
 The check itself is the [`check-semantic-line-breaks`](../../.github/actions/check-semantic-line-breaks/) composite action — a dependency-free Python script run on the runner's system Python, fetched at the workflow file's own commit ([ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md)) rather than a pinned ref.
 Its colocated `test_sembr_check.py` is where the confidence lives: the larger half of it asserts silence on every construct a naive "break after every `.`" would have flagged.
 
-## Tool selection
-
-lychee (Rust) does all link + anchor resolution — internal and external; markdownlint-cli2 does style.
-remark-validate-links is the documented fallback if lychee's slugger ever diverges from GitHub's.
-The full rationale and rejected alternatives are in [ADR-002](../decisions/002-markdown-validation-tooling.md).
-
-## markdownlint rules that need a deliberate choice
-
-This workflow imposes **no** rules — the caller's `.markdownlint-cli2.jsonc` is entirely the adopting repo's.
-Four rules are worth deciding deliberately rather than leaving to a default, because each is half of a pair: the machine-checkable rule, plus a human convention the tool can't enforce.
-The trade-offs are below so a repo can make its own call; Fabrizio's choices, and the conventions that pair with them, ship in the [`markdown-standards` plugin](https://github.com/flungo/claude-plugins/tree/main/plugins/markdown-standards) for repos that want them.
-
-- **`MD013` (line-length) — turn it off if you adopt semantic line breaks.**
-  A character ceiling is the wrong tool for prose consistency: it only caps, it can't reflow, and 80 columns is archaic.
-  The convention is one sentence per source line, which Markdown renders as one paragraph — for sentence-scoped diffs and review comments, and no paragraph-wide reflow churn when a sentence changes.
-  No general-purpose formatter enforces one-sentence-per-line (Prettier declined it — cross-language sentence detection is too hard — and markdownlint has no reflow rule), so the bulk of it stays a convention, with `MD013` off so nothing fights it.
-  Its one MUST rule *is* enforceable, and [`markdown-sembr.yml`](#semantic-line-breaks-markdown-sembryml) enforces that much; the rest still rests on the author.
-  ("Semantic line breaks" / "ventilated prose" — see <https://sembr.org/> — has no universal consensus; adopted for the diff and review benefits.)
-- **`MD024` (no-duplicate-heading) — `siblings_only` trades strictness for repeatable subsection names.**
-  `siblings_only` lets docs repeat subsection names (e.g. `Context` / `Decision` / `Consequences` across ADRs, or `Symptom` / `Root cause` across incidents) under different parents.
-  The paired convention: give any heading you cross-reference a unique name — see "Duplicate headings and anchor ambiguity" below for the gap it closes.
-- **`MD060` (table-column-style) — pin a style; the default is ambiguous.**
-  `"consistent"` infers the style per table, so a table where no row disambiguates — cells all different widths — infers `"aligned"` (every cell padded out to its column's widest) while the rest of the repo is `"compact"` (one space each side of every pipe).
-  Pin one.
-  The argument for `"compact"` is the same as the one for turning `MD013` off: a diff should be the size of the change.
-  Under `"aligned"` cell width is shared state, so editing one cell reflows the whitespace of every row and a one-word change arrives as a whole-table diff — and a single long cell taxes every other row with padding for as long as it stays.
-  Compact has no such coupling: a cell's source is its own content, so the diff names the row that changed.
-  Two lesser points fall out the same way — `markdownlint-cli2 --fix` produces compact but will not pad to alignment, so an inferred-aligned table becomes hand editing; and aligned tables stop being readable in source as soon as one cell is long.
-- **`MD028` (no-blanks-blockquote) — left enabled, the fix is a judgement call.**
-  Two blockquotes separated by only a blank line are two *separate* blockquotes in CommonMark/GFM (the blank line ends the first), but the split is parser-ambiguous, so `MD028` flags it.
-  The paired convention: fix to match intent — `>` on the blank line to make one blockquote; to keep two distinct ones, prefer a connecting sentence between them where one flows naturally, else an invisible `<!-- -->` separator (never manufacture filler just to avoid the comment); and never collapse distinct notes into one just to silence the rule.
-
-## Duplicate headings and anchor ambiguity (MD024 `siblings_only`)
-
-`MD024` is set to `siblings_only` so docs can repeat subsection names under different parents.
-That leaves one narrow gap in the "someone adds a duplicate of a heading that was already linked" risk:
-
-| Case | Link outcome | Caught by |
-| --- | --- | --- |
-| New duplicate is a **sibling** (same parent) | — | **MD024 `siblings_only`** blocks it |
-| Non-sibling, added **after** the linked heading | still correct | no breakage |
-| Non-sibling, added **before** the linked heading | silently redirects to the new heading | **neither** (anchor still resolves) |
-| Heading renamed / removed / typo'd | dangles | **lychee** (`Cannot find fragment`) |
-
-lychee replicates GitHub's stateful suffixing — two `## Symptom` headings resolve as `#symptom` and `#symptom-1`, and `#symptom-2` is flagged — but it is existence-only, so it has **no** way to flag an *ambiguous* base-slug link, and `--include-fragments` has no strict/ambiguity mode.
-The only built-in lever that removes the ambiguity entirely is `MD024` **without** `siblings_only` (disallow all duplicate headings) — the opposite trade-off, which would force prefixing every repeated subsection.
-
-**The convention that closes it:** give any heading you cross-reference a **unique** name; repeat heading text only where it is not a link target.
-(This is one of the conventions the `markdown-standards` plugin encodes.)
-That structurally closes the one residual gap (a non-sibling duplicate inserted before a linked heading).
-
-**Phase 2c (optional, not built):** to close that gap with tooling instead of convention, a custom markdownlint rule (JS) or a small CI script could flag any internal link whose base slug belongs to a heading that appears more than once in the target file.
-Left as an optional enhancement — the convention above suffices, and it is added maintenance for a narrow case.
-
 ## `LYCHEE_GITHUB_TOKEN` provisioning
 
 The external sweep needs a token to resolve links to **all repositories the user can read** (including private ones) and to avoid public-GitHub rate limits.
+
+> **In a `flungo` repository there is nothing to provision.**
+> Every one is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), whose `standard-repository` module attaches this secret — and requires the two blocking checks — when `markdown = true`, which is the default.
+> See [§ Adopting in a repository managed by `terraform-github`](../runbooks/adopting-markdown-workflows.md#adopting-in-a-repository-managed-by-terraform-github).
+> The rest of this section is for everyone else, and for understanding what that flag sets up.
 
 - **Token:** create a **fine-grained PAT** — resource owner = the account/org, repository access = **All repositories**, permissions = **Contents: Read-only** and **Metadata: Read-only** (Metadata is mandatory).
   Set an expiry and a rotation reminder.
@@ -156,7 +192,7 @@ The external sweep needs a token to resolve links to **all repositories the user
 ## Per-repo config
 
 - **`.markdownlint-cli2.jsonc`** — the caller's markdownlint rules.
-  Start from the defaults above; give each additional override an inline justification.
+  Start from the choices above; give each additional override an inline justification.
   Repo-specific — regenerate, don't copy.
 - **`.lycheeignore`** — one regex per line (`#` comments supported); URLs that legitimately **403/404 while unauthenticated** (a 404 can be an existence-hiding response), or repos deliberately not authenticated against.
   Repo-specific — regenerate per repo from that repo's own findings, never copy another repo's entries.

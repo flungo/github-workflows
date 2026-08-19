@@ -83,16 +83,13 @@ Pointing it at prose that has never been reflowed produces a finding per sentenc
 Run [`reflow.py`](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/scripts/reflow.py) from the `markdown-standards` plugin first — it is render-gated, so it only rewrites what renders identically — then land the caller.
 Turning `MD013` off in the same change keeps the two rules from pulling in opposite directions.
 
-**`reflow.py` alone will not get you to green, and the residue is always the same shape.**
-It splits on a terminator followed by a space, so a sentence ending inside markup is invisible to it:
+**Run the check after the reflow, and fix by hand whatever it still reports.**
+`reflow.py` is deliberately conservative — it keeps only what renders identically — so the check, not the script, is what says a repo is done.
+Expect little, and expect no particular shape.
 
-```markdown
-**Prefer fixing it forward.** If compatibility can be restored…
-```
-
-The period is followed by `*`, so `reflow.py` leaves the line alone — but the bold lead-in is a complete sentence, so the check flags it.
-Reflowing this repo left 65 of these after a clean `reflow.py` pass.
-Expect to break them yourself, and re-render to confirm nothing moved.
+Residue specific enough to describe is a defect rather than a fact of adoption, and belongs fixed at its source: in `reflow.py` where the script is blind to something, or in the prose where a better structure would avoid the question.
+This section used to name a shape and give a count for it, and both went stale the moment [claude-plugins#50](https://github.com/flungo/claude-plugins/pull/50) taught the script to see a sentence that ends inside markup.
+Naming the next one would date this page the same way.
 
 For what the check deliberately does *not* flag, and the `<!-- sembr-* -->` comments that suppress a finding it gets wrong, see [`markdown-validation.md § Semantic line breaks`](../reference/markdown-validation.md#semantic-line-breaks-markdown-sembryml).
 

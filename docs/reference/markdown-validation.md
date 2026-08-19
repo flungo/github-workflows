@@ -144,7 +144,8 @@ It says nothing when:
 The first two rows are permanent blind spots: a sentence genuinely ending in "etc." is not reported.
 That is the intended direction of the trade — see [ADR-015](../decisions/015-semantic-line-break-check.md).
 
-It is stricter than `reflow.py` in one place, which matters when migrating a repo: a sentence ending inside markup (`**A bold lead-in.** The rest.`) is a break `reflow.py` cannot see, because the period is followed by `*` rather than a space.
+`reflow.py` recognises a sentence end wherever this check does, including one inside markup (`**A bold lead-in.** The rest.`), because it takes the closing characters from the same set this does.
+It stays the more conservative of the two — it may leave a break the check then asks for, never the reverse — so migrating means running the reflow and then clearing whatever the check still reports.
 See [§ Adopt it only alongside the reflow](../runbooks/adopting-markdown-workflows.md#adopt-it-only-alongside-the-reflow).
 
 ### Suppressing a finding

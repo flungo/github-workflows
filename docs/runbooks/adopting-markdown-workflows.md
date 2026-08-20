@@ -55,7 +55,7 @@ The external sweep upserts a `markdown-links` issue, so the reusable workflow re
 
 Optional, and only for a repo on semantic line breaks.
 It flags two sentences sharing a source line — the one MUST rule of [sembr](https://sembr.org/) — and nothing else.
-No secrets or permissions; both inputs have working defaults.
+No secrets or permissions; every input has a working default.
 
 ```yaml
 name: Markdown semantic line breaks
@@ -67,7 +67,12 @@ jobs:
     uses: flungo/github-workflows/.github/workflows/markdown-sembr.yml@v2
 ```
 
-Pass `globs` (default `**/*.md`, and unlike most Markdown tooling it does reach into dot directories) and `ignore` to narrow the scan — a vendored or generated tree, say:
+**`.markdownlint-cli2.jsonc`'s `ignores` apply here too, without being restated.**
+The check reads them from the repo's config and skips the same trees, so pre-canned data — fixtures, sample inputs, recorded responses, whatever the repo calls the directory — is excluded once rather than in each config, where the two copies drift apart silently ([ADR-016](../decisions/016-sembr-inherits-markdownlint-ignores.md)).
+Set `inherit-markdownlint-ignores: false` to scan what the linter skips.
+A `.markdownlint-cli2.cjs`/`.mjs` config cannot be read from the checker, and it says so in the log rather than passing over it.
+
+Pass `globs` (default `**/*.md`, and unlike most Markdown tooling it does reach into dot directories) and `ignore` for anything the linter config does not already cover:
 
 ```yaml
     with:

@@ -25,6 +25,13 @@ on:
           name matches at any depth. A directory covers everything beneath it.
         type: string
         default: ''
+      inherit-markdownlint-ignores:
+        description: >-
+          Read `ignores` from the repo's markdownlint-cli2 config and apply them
+          here too, so a tree is excluded once rather than in each config. Set
+          false to scan what the linter skips.
+        type: boolean
+        default: true
 
 jobs:
   # No `name:` — the job ID is the check name (ADR-011), giving
@@ -61,3 +68,4 @@ jobs:
           ignore: |
             .github-workflows
             ${{ inputs.ignore }}
+          inherit-markdownlint-ignores: ${{ inputs.inherit-markdownlint-ignores }}

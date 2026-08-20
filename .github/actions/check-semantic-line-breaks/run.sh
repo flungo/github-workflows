@@ -12,6 +12,14 @@ GITHUB_ACTION_PATH=${GITHUB_ACTION_PATH:-$(cd "$(dirname "$0")" && pwd)}
 
 args=(--format github)
 
+# Default on: the checker discovers the repo's markdownlint-cli2 config itself
+# and applies its `ignores` too, so a repo excludes a tree once rather than in
+# each config. Anything but a literal 'false' leaves that on, so an unset or
+# empty input behaves as the default rather than silently opting out.
+if [ "${INHERIT_MARKDOWNLINT_IGNORES:-true}" = "false" ]; then
+  args+=(--no-markdownlint-config)
+fi
+
 # When markdown-sembr.yml fetches this action it sparse-checks-out this repo
 # *inside the caller's workspace* (ADR-009), so this repo's own Markdown would
 # otherwise be scanned as if it were the caller's. Exclude that checkout, and

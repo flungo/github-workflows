@@ -20,6 +20,12 @@ inputs:
       name matches at any depth. A pattern naming a directory covers everything
       beneath it.
     default: ''
+  inherit-markdownlint-ignores:
+    description: >-
+      Read `ignores` from the repo's markdownlint-cli2 config and apply them
+      here too, so the two checks skip the same trees without the exclusion
+      being maintained twice. Set to 'false' to scan what the linter skips.
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -28,4 +34,5 @@ runs:
       env:
         GLOBS: ${{ inputs.globs }}
         IGNORE: ${{ inputs.ignore }}
+        INHERIT_MARKDOWNLINT_IGNORES: ${{ inputs.inherit-markdownlint-ignores }}
       run: '"$GITHUB_ACTION_PATH/run.sh"'

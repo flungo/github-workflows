@@ -37,8 +37,14 @@ Suppression, for the cases it still gets wrong:
     <!-- sembr-disable -->             skip until re-enabled
     <!-- sembr-enable -->
 
+A repo's markdownlint-cli2 `ignores` are read and applied on top of any
+`--ignore`, so the two checks skip the same trees without the exclusion being
+maintained twice; `--no-markdownlint-config` turns that off.
+
 Usage:
-    python3 sembr_check.py [--format text|github] [--ignore GLOB]... [GLOB...]
+    python3 sembr_check.py [--format text|github] [--ignore GLOB]...
+                           [--markdownlint-config PATH | --no-markdownlint-config]
+                           [GLOB...]
 
 Exit status: 0 clean, 1 violations found, 2 bad usage.
 """
@@ -47,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import glob as globlib
+import json
 import os
 import re
 import sys
@@ -435,6 +442,145 @@ def check_file(path: str) -> list[Finding]:
 
 ALWAYS_IGNORED = (".git", "node_modules")
 
+# markdownlint-cli2 config files that can carry `ignores`, in its own
+# precedence order. The `.markdownlint.*` family carries only the `config`
+# object, so there is nothing here to read from those.
+MARKDOWNLINT_CONFIGS = (
+    ".markdownlint-cli2.jsonc",
+    ".markdownlint-cli2.yaml",
+    ".markdownlint-cli2.cjs",
+    ".markdownlint-cli2.mjs",
+)
+
+
+def _strip_jsonc(text: str) -> str:
+    """Remove comments and trailing commas so `json` can parse a JSONC file.
+
+    Scanned rather than regexed because a `//` inside a string literal is data,
+    not a comment — the rule paths in a real config are full of them.
+    """
+    out, i, n = [], 0, len(text)
+    while i < n:
+        ch = text[i]
+        if ch == '"':                                    # copy a string whole
+            out.append(ch)
+            i += 1
+            while i < n:
+                out.append(text[i])
+                if text[i] == "\\":
+                    i += 1
+                    if i < n:
+                        out.append(text[i])
+                elif text[i] == '"':
+                    i += 1
+                    break
+                i += 1
+            continue
+        if text.startswith("//", i):
+            i = text.find("\n", i)
+            if i == -1:
+                break
+            continue
+        if text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            i = n if end == -1 else end + 2
+            continue
+        out.append(ch)
+        i += 1
+    # Trailing commas are legal in JSONC and fatal to json.loads.
+    return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
+
+
+def markdownlint_pattern(pattern: str) -> str:
+    """Translate one markdownlint-cli2 `ignores` glob into this checker's dialect.
+
+    globby reads `**/` as "zero or more directories", so `**/fixtures/**` covers
+    a top-level `fixtures/` as well as a nested one. This checker spells "at any
+    depth" as a bare name instead (see `_matches`), and its `**/…` needs at
+    least one leading directory — so importing such a pattern verbatim would
+    quietly leave the top-level copy in scope, which is the asymmetry that
+    reading the config exists to remove. Stripping the wildcard prefix and the
+    "everything beneath" suffix makes the two agree.
+
+    A `*` inside a path segment is left alone. globby confines it to one
+    segment where `_matches` lets it span separators, so such a pattern can
+    exclude more here than it does there — the direction that costs coverage of
+    the prose gate, so those are reported rather than applied silently.
+    """
+    result = pattern.strip()
+    while result.startswith("**/"):
+        result = result[3:]
+    while result.endswith("/**"):
+        result = result[:-3]
+    return result.rstrip("/")
+
+
+def load_markdownlint_ignores(
+    path: str | None = None, root: str = "."
+) -> tuple[list[str], str | None, list[str]]:
+    """Read `ignores` from a markdownlint-cli2 config: (patterns, source, notes).
+
+    `notes` carries anything the caller should be told rather than left to
+    discover from a surprising scan: a config this cannot read, or a pattern
+    whose meaning may not survive the translation. Missing config is not a
+    note — most repos have none, and saying so every run is noise.
+    """
+    notes: list[str] = []
+    if path is None:
+        for candidate in MARKDOWNLINT_CONFIGS:
+            candidate_path = os.path.join(root, candidate)
+            if os.path.isfile(candidate_path):
+                path = candidate_path
+                break
+        else:
+            return [], None, notes
+    elif not os.path.isfile(path):
+        return [], None, [f"markdownlint config not found: {path}"]
+
+    name = os.path.basename(path)
+    if name.endswith((".cjs", ".mjs")):
+        return [], path, [
+            f"{path} is JavaScript and cannot be read here — "
+            "pass any shared exclusions via --ignore"
+        ]
+
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+        if name.endswith(".yaml") or name.endswith(".yml"):
+            try:
+                import yaml  # noqa: PLC0415 — optional, and only on this path
+            except ImportError:
+                return [], path, [
+                    f"{path} needs PyYAML to read — install it, switch to "
+                    ".markdownlint-cli2.jsonc, or pass --ignore"
+                ]
+            data = yaml.safe_load(text) or {}
+        else:
+            data = json.loads(_strip_jsonc(text))
+    except Exception as error:                           # malformed, unreadable
+        return [], path, [f"{path} could not be read ({error}) — ignoring it"]
+
+    raw = data.get("ignores") if isinstance(data, dict) else None
+    if not isinstance(raw, list):
+        return [], path, notes
+
+    patterns = []
+    for entry in raw:
+        if not isinstance(entry, str) or not entry.strip():
+            continue
+        if entry.lstrip().startswith("!"):               # a re-inclusion
+            notes.append(f"{path}: ignoring negated pattern {entry!r}")
+            continue
+        translated = markdownlint_pattern(entry)
+        if translated:
+            if "*" in translated.replace("**", ""):
+                notes.append(
+                    f"{path}: {entry!r} has a wildcard inside a path segment, "
+                    "which may exclude more here than in markdownlint"
+                )
+            patterns.append(translated)
+    return patterns, path, notes
+
 
 def _matches(path: str, pattern: str) -> bool:
     """fnmatch, with gitignore's anchoring rule and directory shorthand.
@@ -505,9 +651,34 @@ def main(argv: list[str] | None = None) -> int:
         default="text",
         help="text (default) or github workflow-command annotations",
     )
+    parser.add_argument(
+        "--markdownlint-config",
+        metavar="PATH",
+        help="markdownlint-cli2 config to inherit `ignores` from "
+        "(default: whichever one is in the scan root)",
+    )
+    parser.add_argument(
+        "--no-markdownlint-config",
+        dest="markdownlint_config",
+        action="store_const",
+        const=False,
+        help="do not inherit `ignores` from a markdownlint-cli2 config",
+    )
     args = parser.parse_args(argv)
 
-    files = collect_files(args.globs or ["**/*.md"], args.ignore)
+    ignores = list(args.ignore)
+    if args.markdownlint_config is not False:
+        inherited, source, notes = load_markdownlint_ignores(args.markdownlint_config)
+        for note in notes:
+            print(f"sembr: {note}", file=sys.stderr)
+        if inherited:
+            print(
+                f"sembr: inheriting {len(inherited)} ignore(s) from {source}",
+                file=sys.stderr,
+            )
+            ignores += inherited
+
+    files = collect_files(args.globs or ["**/*.md"], ignores)
     findings = [finding for path in files for finding in check_file(path)]
 
     for finding in findings:

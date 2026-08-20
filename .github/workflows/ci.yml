@@ -41,6 +41,14 @@ jobs:
       # `ignore` is worth more than a `<!-- sembr-disable-file -->` comment
       # here, which would also blind the tests that need the failure.
       ignore: .github/actions/check-semantic-line-breaks/fixtures/violations
+      # This repo is the exception the input exists for (ADR-016). Its
+      # markdownlint config skips the whole fixtures tree — style rules fight
+      # the constructs those files exist to exercise — while this run wants
+      # only violations/ skipped. Inheriting would take fixtures/clean/ with
+      # it, silently dropping the file that proves the check stays quiet, and
+      # would make the ignore above redundant — and that line is load-bearing:
+      # ADR-009's checkout exclusion regresses here if it is ever dropped.
+      inherit-markdownlint-ignores: false
 
   markdown-links:
     # Internal (offline, blocking) on PR/push; external (issue-reporting) on the

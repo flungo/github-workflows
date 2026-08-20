@@ -13,7 +13,9 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import types
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -424,6 +426,176 @@ class CommandLineTest(unittest.TestCase):
     def test_default_glob_is_the_whole_tree(self):
         self.write("bad.md", "One. Two.\n")
         self.assertEqual(self.run_check().returncode, 1)
+
+
+class MarkdownlintPatternTest(unittest.TestCase):
+    """Translating one markdownlint-cli2 `ignores` glob into this dialect."""
+
+    def test_wildcard_prefix_and_suffix_become_a_bare_name(self):
+        # The case that matters: globby's `**/` covers zero directories, so
+        # the result has to reach a top-level `fixtures/` too.
+        self.assertEqual(sembr_check.markdownlint_pattern("**/fixtures/**"), "fixtures")
+
+    def test_an_anchored_pattern_stays_anchored(self):
+        self.assertEqual(sembr_check.markdownlint_pattern("docs/generated/**"), "docs/generated")
+
+    def test_trailing_slash_and_whitespace_are_trimmed(self):
+        self.assertEqual(sembr_check.markdownlint_pattern("  vendor/  "), "vendor")
+
+    def test_translated_pattern_matches_at_both_depths(self):
+        pattern = sembr_check.markdownlint_pattern("**/fixtures/**")
+        for path in ("fixtures/a.md", "plugins/x/evals/fixtures/a.md"):
+            with self.subTest(path=path):
+                self.assertTrue(sembr_check._matches(path, pattern))
+        self.assertFalse(sembr_check._matches("docs/a.md", pattern))
+
+
+class MarkdownlintConfigTest(unittest.TestCase):
+    """Reading `ignores` out of a markdownlint-cli2 config."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def write(self, name, body):
+        path = os.path.join(self.tmp.name, name)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(textwrap.dedent(body).lstrip("\n"))
+        return path
+
+    def load(self, **kwargs):
+        return sembr_check.load_markdownlint_ignores(root=self.tmp.name, **kwargs)
+
+    def test_reads_ignores_through_comments_and_a_trailing_comma(self):
+        # A `//` inside a string is data, not a comment — a rule URL is the
+        # usual way that shows up in a real config.
+        self.write(
+            ".markdownlint-cli2.jsonc",
+            """
+            // leading comment
+            {
+              "config": { "MD013": false }, // see https://example.com/rules
+              /* block */
+              "ignores": ["**/fixtures/**", "vendor"],
+            }
+            """,
+        )
+        patterns, source, notes = self.load()
+        self.assertEqual(patterns, ["fixtures", "vendor"])
+        self.assertTrue(source.endswith(".markdownlint-cli2.jsonc"))
+        self.assertEqual(notes, [])
+
+    def test_no_config_is_silent(self):
+        # Most repos have none; saying so every run would be noise.
+        self.assertEqual(self.load(), ([], None, []))
+
+    def test_config_without_ignores_yields_nothing(self):
+        self.write(".markdownlint-cli2.jsonc", '{ "config": { "MD013": false } }')
+        patterns, _, notes = self.load()
+        self.assertEqual((patterns, notes), ([], []))
+
+    def test_javascript_config_is_reported_rather_than_skipped_silently(self):
+        self.write(".markdownlint-cli2.mjs", "export default {};")
+        patterns, _, notes = self.load()
+        self.assertEqual(patterns, [])
+        self.assertTrue(any("cannot be read" in note for note in notes))
+
+    def test_malformed_config_is_reported_and_does_not_raise(self):
+        self.write(".markdownlint-cli2.jsonc", "{ not json at all")
+        patterns, _, notes = self.load()
+        self.assertEqual(patterns, [])
+        self.assertTrue(any("could not be read" in note for note in notes))
+
+    def test_negated_pattern_is_skipped_with_a_note(self):
+        self.write(".markdownlint-cli2.jsonc", '{ "ignores": ["!keep/**", "drop/**"] }')
+        patterns, _, notes = self.load()
+        self.assertEqual(patterns, ["drop"])
+        self.assertTrue(any("negated" in note for note in notes))
+
+    def test_mid_segment_wildcard_is_applied_but_flagged(self):
+        # It can exclude more here than in markdownlint, which costs coverage
+        # of the prose gate, so it is not applied silently.
+        self.write(".markdownlint-cli2.jsonc", '{ "ignores": ["plugins/*/evals/**"] }')
+        patterns, _, notes = self.load()
+        self.assertEqual(patterns, ["plugins/*/evals"])
+        self.assertTrue(any("wildcard inside a path segment" in note for note in notes))
+
+    def write_yaml_config(self):
+        self.write(".markdownlint-cli2.yaml", "ignores:\n  - '**/fixtures/**'\n")
+
+    # PyYAML is the one dependency this script does not have, so both sides of
+    # that import are mocked rather than left to whatever the runner installed.
+    # Asserting whichever branch the environment happens to take would leave
+    # the other permanently unrun, and the missing-PyYAML branch is precisely
+    # the one no developer machine would reach.
+
+    def test_yaml_config_is_read_when_pyyaml_is_importable(self):
+        self.write_yaml_config()
+        parsed = []
+
+        def fake_safe_load(text):
+            parsed.append(text)
+            return {"ignores": ["**/fixtures/**"]}
+
+        stub = types.ModuleType("yaml")
+        stub.safe_load = fake_safe_load
+        with mock.patch.dict(sys.modules, {"yaml": stub}):
+            patterns, _, notes = self.load()
+
+        self.assertEqual(patterns, ["fixtures"])
+        self.assertEqual(notes, [])
+        # The file's own text reached the parser, so this covers the plumbing
+        # and not just the return value being passed through.
+        self.assertIn("ignores:", parsed[0])
+
+    def test_yaml_config_without_pyyaml_says_so(self):
+        self.write_yaml_config()
+        # None in sys.modules is what makes `import yaml` raise, which is the
+        # state on a runner where PyYAML was never installed.
+        with mock.patch.dict(sys.modules, {"yaml": None}):
+            patterns, source, notes = self.load()
+
+        self.assertEqual(patterns, [])
+        self.assertTrue(source.endswith(".markdownlint-cli2.yaml"))
+        self.assertTrue(any("PyYAML" in note for note in notes))
+
+    def test_jsonc_wins_over_yaml_as_markdownlint_orders_them(self):
+        self.write(".markdownlint-cli2.jsonc", '{ "ignores": ["from-jsonc/**"] }')
+        self.write(".markdownlint-cli2.yaml", "ignores:\n  - from-yaml/**\n")
+        patterns, _, _ = self.load()
+        self.assertEqual(patterns, ["from-jsonc"])
+
+    def test_a_named_config_that_is_missing_is_reported(self):
+        patterns, source, notes = self.load(path=os.path.join(self.tmp.name, "nope.jsonc"))
+        self.assertEqual((patterns, source), ([], None))
+        self.assertTrue(any("not found" in note for note in notes))
+
+
+class MarkdownlintInheritanceTest(CommandLineTest):
+    """The inheritance as a consumer actually gets it, end to end."""
+
+    def bad_fixture_and_config(self):
+        os.makedirs(os.path.join(self.tmp.name, "fixtures"))
+        self.write(os.path.join("fixtures", "bad.md"), "One. Two.\n")
+        self.write(".markdownlint-cli2.jsonc", '{ "ignores": ["**/fixtures/**"] }')
+
+    def test_ignores_are_inherited_by_default(self):
+        self.bad_fixture_and_config()
+        self.assertEqual(self.run_check("**/*.md").returncode, 0)
+
+    def test_inheritance_can_be_turned_off(self):
+        self.bad_fixture_and_config()
+        self.assertEqual(self.run_check("--no-markdownlint-config", "**/*.md").returncode, 1)
+
+    def test_inheritance_does_not_widen_beyond_the_config(self):
+        # Prose outside the ignored tree stays under the gate — the failure
+        # that would matter here is silently dropping files, not keeping them.
+        self.bad_fixture_and_config()
+        self.write("docs.md", "One. Two.\n")
+        result = self.run_check("**/*.md")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("docs.md", result.stdout)
+        self.assertNotIn("fixtures", result.stdout)
 
 
 if __name__ == "__main__":

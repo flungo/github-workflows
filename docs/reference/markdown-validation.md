@@ -22,7 +22,8 @@ The third, `markdown-sembr.yml`, enforces a prose convention, so it is adopted o
 - [`markdown-sembr.yml`](../../.github/workflows/markdown-sembr.yml) — the one hard [semantic line break](https://sembr.org/) rule: two sentences must not share a source line.
   Blocking, on every PR/push.
   **Opt-in by adoption** — it is the only Markdown workflow that imposes a prose style.
-  Inputs `globs` and `ignore`; no secrets or permissions.
+  Inputs `globs`, `ignore` and `inherit-markdownlint-ignores`; no secrets or permissions.
+  It reads `ignores` out of the repo's markdownlint-cli2 config by default, so both checks skip the same trees from one declaration ([ADR-016](../decisions/016-sembr-inherits-markdownlint-ignores.md)).
 
 ## What each one is worth
 

@@ -61,6 +61,22 @@ printf 'A consumer document. With two sentences on a line.\n' > "$workspace/docs
   expect_success "the default glob, once the violation is ignored" GLOBS= IGNORE=docs
 )
 
+# A repo's markdownlint-cli2 `ignores` are inherited unless the input says
+# otherwise, so a tree is excluded once rather than in each config. The unit
+# tests cover the reading; these cover the input reaching the checker at all —
+# including that an unset input still means on, which is the default both
+# action.yml and the workflow promise.
+(
+  cd "$workspace"
+  printf '{ "ignores": ["**/docs/**"] }' > .markdownlint-cli2.jsonc
+  expect_success "a violation excluded only by the markdownlint config" GLOBS= IGNORE=
+  expect_success "the same, with the inherit input left unset" \
+    GLOBS= IGNORE= INHERIT_MARKDOWNLINT_IGNORES=
+  expect_failure "the same, with inheritance turned off" \
+    GLOBS= IGNORE= INHERIT_MARKDOWNLINT_IGNORES=false
+  rm .markdownlint-cli2.jsonc
+)
+
 # The sparse checkout this repo lands in a consumer's workspace must never be
 # scanned as if it were the consumer's own docs (ADR-009) — and since the
 # default glob reaches into dot directories, nothing else would keep it out.

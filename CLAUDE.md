@@ -77,6 +77,10 @@ Improvements intentionally not done yet:
   Ideally add a self-CI guard asserting unprefixed workflows are `workflow_call`-only (accommodating the dogfooded Markdown calls).
   Renaming the products themselves (GitHub's `reusable-*` docs style) is a breaking contract change that would have to ride the `v3` batch above.
 
+## Active work
+
+- [`docs/plans/mdformat-sembr-upstream-fixes.md`](docs/plans/mdformat-sembr-upstream-fixes.md) — track the mdformat-sembr patches and proposals open upstream, and the conditions under which [ADR-017](docs/decisions/017-keep-home-grown-sembr-tooling-over-mdformat-sembr.md) reopens the `reflow.py` question.
+
 ## Working in this repo with Claude Code
 
 Match CI's markdownlint locally before pushing, or you chase findings CI never raises and miss ones it does: `npm install markdownlint-cli2@0.23.1` (markdownlint 0.41.1), the version `DavidAnson/markdownlint-cli2-action@v24` pins.

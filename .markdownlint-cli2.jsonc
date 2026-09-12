@@ -10,8 +10,9 @@
     // Context / Decision / Consequences recurring across records).
     "MD024": { "siblings_only": true },
     // Compact tables, one space each side of every pipe. Pinned rather than
-    // left to MD060's ambiguous default ("consistent" infers per table, and
-    // picks "aligned" where no row disambiguates). Same reasoning as MD013
+    // left to MD060's ambiguous default ("any" accepts each table in whichever
+    // style it already satisfies, and reports one matching no style against
+    // the closest fit, which can be "aligned"). Same reasoning as MD013
     // above: a diff should be the size of the change. Under "aligned" cell
     // width is shared state — every cell is padded to its column's widest, so
     // one edit reflows the whole table and one long cell taxes every row.

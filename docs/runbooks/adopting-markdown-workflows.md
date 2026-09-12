@@ -203,7 +203,7 @@ Until then, adopting `markdown-sembr.yml` is exactly as described above: a calle
 What it does is attach `LYCHEE_GITHUB_TOKEN` and add the two contexts above to the repository's required status checks.
 
 The exception is a repository being **created**: it has no callers yet, so `terraform-github`'s creation runbook sets `markdown = false` on the create.
-Adopting the workflows there means deleting that line in the same pull request that adds the callers.
+The callers belong to the repository's first pull request — the docs scaffolding and CI that land before any other content — and the `terraform-github` follow-up that removes the create's `repository_exists = false` removes `markdown = false` with it, once that first pull request is on the default branch.
 
 ### Either order works, and workflows-first is usually kinder
 

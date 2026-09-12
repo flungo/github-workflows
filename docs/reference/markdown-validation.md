@@ -78,7 +78,7 @@ The trade-offs are below so another repo can weigh the same evidence and land so
   `siblings_only` lets docs repeat subsection names (e.g. `Context` / `Decision` / `Consequences` across ADRs, or `Symptom` / `Root cause` across incidents) under different parents.
   The paired convention: give any heading you cross-reference a unique name — see [§ Duplicate headings and anchor ambiguity](#duplicate-headings-and-anchor-ambiguity-md024-siblings_only) for the gap it closes.
 - **`MD060` (table-column-style) — pinned to `"compact"`, because the default is ambiguous.**
-  `"consistent"` infers the style per table, so a table where no row disambiguates — cells all different widths — infers `"aligned"` (every cell padded out to its column's widest) while the rest of the repo is `"compact"` (one space each side of every pipe).
+  The default, `"any"`, accepts each table in whichever supported style it already satisfies, so one repository can carry `"compact"` (one space each side of every pipe) and `"aligned"` (every cell padded out to its column's widest) tables side by side, and a table that matches no style is reported against whichever is the closest fit — which can be `"aligned"`.
   Pin one.
   The argument for `"compact"` is the same as the one for turning `MD013` off: a diff should be the size of the change.
   Under `"aligned"` cell width is shared state, so editing one cell reflows the whitespace of every row and a one-word change arrives as a whole-table diff — and a single long cell taxes every other row with padding for as long as it stays.

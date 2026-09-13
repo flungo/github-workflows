@@ -74,3 +74,7 @@ It runs on the runner's system Python with no setup step.
   It splits on a terminator followed by a space, so a sentence ending inside markup — `**A bold lead-in.** The rest.` — is invisible to it, while the checker flags it.
   Reflowing this repo needed a companion pass for 63 such breaks.
   Every repo adopting the check hits the same gap until the plugin's splitter learns the case; [`adopting-markdown-workflows.md`](../runbooks/adopting-markdown-workflows.md) says so at the point it matters.
+
+  > **Amended 2026-09-13:** the splitter has learned the case.
+  > [claude-plugins#50](https://github.com/flungo/claude-plugins/pull/50) takes `reflow.py`'s closing characters from the same set this checker uses, so the two agree on where a sentence ends and an adopting repo no longer meets this gap.
+  > The runbook no longer warns of one, and [`markdown-validation.md`](../reference/markdown-validation.md#semantic-line-breaks-markdown-sembryml) records what the two tools now share.

@@ -54,6 +54,10 @@ Paired with the [cross-referencing rules](https://github.com/flungo/claude-plugi
 Something that was described elsewhere has changed, so the prose around the link is now describing the old thing.
 The check turns that into a red build the same day rather than a discovery months later, for a human and an agent alike, which is why the paired remediation rule is to fix the link or its target and never to ignore-list the check into passing.
 
+One thing it does not catch: **a link inside a fenced code block is not checked at all.**
+lychee treats fenced and indented code as verbatim and extracts nothing from it unless `--include-verbatim` is passed, which `markdown-links.yml` does not — so a broken relative path in a copy-paste template stays invisible until someone pastes it somewhere real.
+Confirmed against [lychee's Markdown extractor](https://github.com/lycheeverse/lychee/blob/master/lychee-lib/src/extract/markdown.rs), which gates code-block text behind that flag, and the flag's default of off.
+
 ## Tool selection
 
 lychee (Rust) does all link + anchor resolution — internal and external; markdownlint-cli2 does style.

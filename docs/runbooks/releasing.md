@@ -34,7 +34,9 @@ In the **same PR** as the breaking change:
 2. **Add the new major's section to [`upgrading.md`](../reference/upgrading.md)** — what breaks and what a consumer must do about it, in the same PR as the breaking change while you still hold the context.
    Breaking changes only; see [ADR-013](../decisions/013-per-major-upgrade-guide.md) for what belongs there and what does not.
    It stays editable until the promotion.
-3. Land the PR as normal.
+3. **Add the settling callout to the [README](../../README.md)**, in the slot its HTML comment marks — [template below](#the-settling-callout).
+   `ci.yml`'s `release-state` job fails without it, so this is not a step you can forget.
+4. Land the PR as normal.
 
 On merge, `release.yml` sees the new name, **creates `v<new>` at `main`**, and never touches `v<old>` again — so `@v<old>` consumers **freeze** on their last compatible commit.
 Don't pre-create `v<new>` by hand: creation is restricted to the release App and the push would be rejected (see [Never](#never)).
@@ -56,6 +58,27 @@ Between them:
 - **Every pull request carries a reminder.**
   `ci.yml`'s `release-state` job annotates each run for as long as the two values differ.
   The annotation is non-blocking: settling is a legitimate state to merge onto, and it lasts as long as adopting the major takes.
+- **The README says so**, via the callout below, so someone arriving at the repository is not handed a contract that can still change.
+
+### The settling callout
+
+The upgrade-guide links in a consumer's version-check issue are pinned to the major being migrated to, so an upgrading consumer never reads this branch ([ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md)).
+A **new** adopter has no such issue to arrive through: they land on `main`, where the docs describe the major that is settling.
+The README's adoption-runbook links are pinned to the stable major for that reason, and while a major is settling the README says outright that one is in progress:
+
+```markdown
+<!-- settling:start -->
+> **`v3` has been cut and is settling.**
+> Its contract can still change, so adopt **`@v2`** — the current stable major — and read [the `v2` documentation](https://github.com/flungo/github-workflows/tree/v2) rather than this branch's, which already describes `v3`.
+> Why: [the settling period](docs/runbooks/releasing.md#the-settling-period).
+<!-- settling:end -->
+```
+
+The first link is absolute because it deliberately points at another ref; the second is relative because the callout lives in the README, where that path resolves.
+Neither is checked while it sits in this code block — lychee skips verbatim content unless `--include-verbatim` is passed, which [`markdown-links.yml`](../../.github/workflows/markdown-links.yml) does not — so the template is proved only once it is pasted.
+
+`release-state` fails unless the callout is present **exactly** while `MAJOR_BRANCH` and `STABLE_MAJOR` differ, and unless it names both of them — a callout left over from an earlier cut is worse than none, because it names the wrong majors with full confidence.
+It checks the pinned links the same way, so the README cannot advertise a major that is not the stable one.
 
 This is what makes cutting a major incremental.
 The contract is proved by adopting it, one repository at a time, and what that turns up — a check name that reads badly in a checks list, a required-check string that had to change in an order nobody predicted — arrives after the cut.
@@ -80,10 +103,12 @@ When adopting the new major across your own repositories has proved the contract
 In one PR:
 
 1. Edit `STABLE_MAJOR` in `release.yml` to match `MAJOR_BRANCH`.
-2. **Update the docs that track the current version.**
+2. **Remove the [settling callout](#the-settling-callout) from the README**, and bump its pinned adoption-runbook links (`blob/v<old>/…` → `blob/v<new>/…`).
+   `release-state` fails until both match the new state, so neither can be left behind.
+3. **Update the docs that track the current version.**
    Search the repo for `v<old>` — broader than `@v<old>`, so it also catches prose and tables that name the version without the `@`, at the cost of more matches to sift — and bump every reference meant to show consumers the current major (the [README](../../README.md) and the adoption runbooks: [Terraform](adopting-terraform-workflows.md), [Markdown](adopting-markdown-workflows.md)) to the new major.
    Leave version-specific mentions — historical and migration notes — as they are.
-3. Settle the new major's [`upgrading.md`](../reference/upgrading.md) section: it stops being editable here and becomes the record consumers migrate against.
+4. Settle the new major's [`upgrading.md`](../reference/upgrading.md) section: it stops being editable here and becomes the record consumers migrate against.
 
 On merge, the `release-state` warning clears, and opted-in consumers still on an older major raise their own migration reminder on their next scheduled run — see [Tracking consumer migration](#tracking-consumer-migration).
 Consumers move deliberately; nothing is pushed onto them.

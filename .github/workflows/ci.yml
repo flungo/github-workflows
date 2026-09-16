@@ -33,10 +33,11 @@ jobs:
     # STABLE_MAJOR — ADR-014), so the divergence is visible on every pull
     # request rather than something anyone has to remember to look for.
     #
-    # Deliberately non-blocking: settling is a legitimate state to merge onto
-    # and can last as long as adopting the major takes, so it annotates and
-    # passes. It fails only on a pair that cannot be right, which would
-    # misdirect every consumer's version-check.
+    # The divergence itself only warns: settling is a legitimate state to merge
+    # onto and can last as long as adopting the major takes. It *fails* on a
+    # pair that cannot be right, and on a README that misdescribes the state —
+    # both would send a new adopter or a consumer's version-check to the wrong
+    # major, which is the one thing this is here to prevent.
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
@@ -45,6 +46,8 @@ jobs:
         run: |
           set -euo pipefail
           file=.github/workflows/release.yml
+          readme=README.md
+          runbook=docs/runbooks/releasing.md#the-settling-period
 
           die() { echo "::error file=$1::$2"; exit 1; }
 
@@ -65,10 +68,47 @@ jobs:
             die "$file" "STABLE_MAJOR ($stable) is ahead of MAJOR_BRANCH ($major) — a major cannot be stable before it is cut."
           fi
 
+          # The README pins its adoption-runbook links to the stable major, so a
+          # new adopter reads instructions, a pin and onward links that agree.
+          # Bumping them is part of promoting; this is what makes it unforgettable.
+          # `|| true` so no matches reaches the check below as an empty string
+          # rather than killing the pipeline under pipefail.
+          refs=$(grep -oE 'blob/v[0-9]+/docs/runbooks/' "$readme" | cut -d/ -f2 | sort -u || true)
+          if [ -z "$refs" ]; then
+            die "$readme" "no adoption-runbook links pinned to a major branch — they should read blob/$stable/docs/runbooks/… ($runbook)."
+          fi
+          if [ "$refs" != "$stable" ]; then
+            die "$readme" "adoption-runbook links are pinned to $(echo "$refs" | tr '\n' ' ')but the stable major is $stable ($runbook)."
+          fi
+
+          # The callout exists exactly while a major is settling.
+          # Matched as the exact marker, not the bare word: the README's own
+          # placement note mentions the markers by name.
+          if grep -qF -- '<!-- settling:start -->' "$readme"; then
+            has_callout=yes
+          else
+            has_callout=no
+          fi
+
           if [ "$stable" = "$major" ]; then
-            echo "Release state: $major is cut and stable."
+            if [ "$has_callout" = yes ]; then
+              die "$readme" "$major is stable, so the settling callout should have been removed when it was promoted ($runbook)."
+            fi
+            echo "Release state: $major is cut and stable; README pins $stable."
             exit 0
           fi
+
+          if [ "$has_callout" = no ]; then
+            die "$readme" "$major is cut and still settling, so the README needs the settling callout — otherwise someone landing here adopts a contract that can still change ($runbook)."
+          fi
+          # A callout left over from an earlier cut is worse than none: it names
+          # the wrong majors with full confidence.
+          callout=$(sed -n '/<!-- settling:start -->/,/<!-- settling:end -->/p' "$readme")
+          for named in "$major" "$stable"; do
+            if ! printf '%s\n' "$callout" | grep -qE "(^|[^0-9A-Za-z])$named([^0-9]|\$)"; then
+              die "$readme" "the settling callout does not name $named; it should say $major is settling and $stable is what to adopt ($runbook)."
+            fi
+          done
 
           line=$(grep -n '^  STABLE_MAJOR:' "$file" | cut -d: -f1)
           echo "::warning file=$file,line=$line::$major is cut but still settling — consumers are still pointed at $stable, and its contract can still change in place. Promote it by setting STABLE_MAJOR to $major once adopting it has proved the contract (docs/runbooks/releasing.md § Promoting a major to stable)."

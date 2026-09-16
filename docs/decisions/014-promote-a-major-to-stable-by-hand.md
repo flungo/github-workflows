@@ -59,6 +59,24 @@ Per-major rather than one ref for the whole span, because a multi-major migratio
 A consumer going `v1` → `v3` reads the `v2` section on `v2`, does that work, then reads the `v3` section on `v3`.
 The cost is that a correction made to an older section after its successor was cut does not reach the pinned copy unless it is backported — acceptable, because that section is *about* its own major, so its own branch is the copy that ought to be right.
 
+### A new adopter needs telling too
+
+Pinning the guide links solves this for an *upgrading* consumer, who arrives through an issue that hands them a ref.
+A **new** adopter arrives at `main`, where — precisely because settling changes land as they happen — the docs describe a major nobody should be adopting yet.
+
+Two things address that, both in the README:
+
+- **Its adoption-runbook links are pinned to the stable major** (`blob/v<stable>/docs/runbooks/…`), not relative.
+  Those pages hand over a caller to copy, and their own onward links resolve against the ref they were opened at, so pinning the four entry points keeps the instructions, the pin they recommend and everything downstream on one coherent version.
+- **A callout, present exactly while a major is settling**, naming what is settling and what to adopt instead.
+
+`release-state` enforces both: the callout must exist while `MAJOR_BRANCH` and `STABLE_MAJOR` differ and must be gone once they agree, it must name both majors, and the pinned links must name the stable one.
+So the cut cannot ship without the callout and the promotion cannot ship with it — the same "cannot be forgotten" property the warning gives promotion itself.
+
+Changing the repository's **default branch** to the stable major was the alternative, and would fix this for anyone browsing rather than only for readers of the README.
+It was rejected on the cost of the defaults it moves: new pull requests would target the stable branch, where a mis-based merge diverges a release branch from `main`; `git clone` — and every agent session — would start on it, so a branch cut from the default while a major settles has the wrong base; Dependabot would raise its bumps there; and `on: schedule` runs only on the default branch, so the daily external-URL sweep would stop covering `main`.
+Those are paid every day, to fix a confusion that exists only during settling windows, and it is a `terraform-github` change rather than one this repository can make.
+
 ### The divergence is surfaced, not remembered
 
 A promotion that is forgotten is worse than a clock that expires: consumers sit on a frozen major and are never told, which is the exact failure ADR-004 exists to prevent.

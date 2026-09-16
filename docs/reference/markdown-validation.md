@@ -177,7 +177,7 @@ Its colocated `test_sembr_check.py` is where the confidence lives: the larger ha
 The external sweep needs a token to resolve links to **all repositories the user can read** (including private ones) and to avoid public-GitHub rate limits.
 
 > **In a `flungo` repository there is nothing to provision.**
-> Every one is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), whose `standard-repository` module attaches this secret — and requires the two blocking checks — when `markdown = true`, which is the default.
+> Every one is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), whose `standard-repository` module attaches this secret — and requires the three blocking checks — when `markdown = true`, which is the default.
 > See [§ Adopting in a repository managed by `terraform-github`](../runbooks/adopting-markdown-workflows.md#adopting-in-a-repository-managed-by-terraform-github).
 > The rest of this section is for everyone else, and for understanding what that flag sets up.
 

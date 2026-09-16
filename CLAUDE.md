@@ -65,14 +65,6 @@ Improvements intentionally not done yet:
 - **Consistent input naming.**
   The workflow inputs mix kebab case (`tf-var-name`, `working-directory`, `terraform-version`, `concurrency-group`, `plan-comment-marker`) and snake case (`tf_vars`, `tf_secret_vars`, `force_run`) (review of #23).
   Converging on one convention renames inputs — a breaking contract change — so fold it into the same `v3` design as the deprecation above.
-- **Make `markdown-sembr / sembr` a required check across the fleet.**
-  Semantic line breaks are the standard for the repos Fabrizio owns, so the plan is settled: every one of them adopts `markdown-sembr.yml`, and once they all report the context it becomes required — via `markdown = true` in [`flungo/terraform-github`](https://github.com/flungo/terraform-github), which declares the Markdown family's required contexts for a repo.
-  That is a fleet policy, not a change to the product.
-  [ADR-015](docs/decisions/015-semantic-line-break-check.md) keeps the workflow opt-in *by adoption* so an outside repo can take `markdown-lint.yml` and `markdown-links.yml` without inheriting a prose style; owning the repo is what settles the opt-in, and neither fact constrains the other.
-  What remains is **order**, and it is unforgiving.
-  A context required before the repo reports it is permanently pending, and nothing in that repo can merge — the same footgun `releasing.md` documents for renamed contexts.
-  So per repo: reflow the prose, add the caller, watch it report green, and only then require it.
-  A repo that has not reflowed cannot be included, so this is a staged rollout ending in the `markdown = true` change, not a single Terraform apply that starts it.
 - **Separate the products from the self-CI more visibly.**
   GitHub discovers workflows only flat in `.github/workflows/` (no subdirectories), so the reusable products and the self-CI (`ci.yml`, `action-tests.yml`, `release.yml`) can only be separated by naming and docs — the status quo everywhere, but worth tightening (#23 follow-up).
   A product's filename is its public contract (consumers pin the full path), so the convention burdens the *internal* files: a **`self-` prefix** (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`) — it takes the slot the product family name occupies on the other filenames.

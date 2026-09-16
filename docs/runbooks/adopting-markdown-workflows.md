@@ -121,7 +121,7 @@ So the filter is available where a check is advisory, and off the table where it
 All three take seconds, so running them on everything costs little and keeps the option of requiring them open.
 
 > **The `flungo` fleet does not use them.**
-> `terraform-github`'s `markdown` flag makes both contexts required — and strict, so a branch must also be up to date — which is incompatible with path filtering.
+> `terraform-github`'s `markdown` flag makes all three contexts required — and strict, so a branch must also be up to date — which is incompatible with path filtering.
 > The snippets above are therefore unfiltered, and a repository managed there should keep them that way.
 > See [§ Adopting in a repository managed by `terraform-github`](#adopting-in-a-repository-managed-by-terraform-github).
 
@@ -174,17 +174,18 @@ What is genuinely per-repo is the URL set and the token, and one clean dispatch 
 
 ## Adopting in a repository managed by `terraform-github`
 
-Every `flungo`-owned repository is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), and its `standard-repository` module has a `markdown` flag meaning **"this repository follows Fabrizio's Markdown standards"** — that is, it calls `markdown-lint.yml` and `markdown-links.yml` under the conventional names.
-The flag provisions the secret the external sweep reads and requires the checks those two report — so what you name your calling jobs is not a local style choice there, it is a cross-repository contract.
+Every `flungo`-owned repository is managed as code in [`terraform-github`](https://github.com/flungo/terraform-github), and its `standard-repository` module has a `markdown` flag meaning **"this repository follows Fabrizio's Markdown standards"** — that is, it calls `markdown-lint.yml`, `markdown-links.yml` and `markdown-sembr.yml` under the conventional names.
+The flag provisions the secret the external sweep reads and requires the checks those three report — so what you name your calling jobs is not a local style choice there, it is a cross-repository contract.
 
 **Name the calling jobs after the workflows they call, or the flag does not fit.**
 
-A check's context is `<caller job id> / <reusable job id>`, and `terraform-github` hardcodes two strings:
+A check's context is `<caller job id> / <reusable job id>`, and `terraform-github` hardcodes three strings:
 
 | Caller | Context it must report |
 | --- | --- |
 | `markdown-lint.yml`, job `markdown-lint` | `markdown-lint / lint` |
 | `markdown-links.yml`, job `markdown-links` | `markdown-links / internal` |
+| `markdown-sembr.yml`, job `markdown-sembr` | `markdown-sembr / sembr` |
 
 Both halves follow published conventions rather than being arbitrary: the caller half is the workflow's filename ([ADR-010](../decisions/010-caller-job-ids-match-the-workflow-filename.md)) and the reusable half is the job's ID ([ADR-011](../decisions/011-reusable-job-ids-are-the-check-name.md)), so a caller copied from the snippets at the top of this page already fits.
 
@@ -194,13 +195,8 @@ Both halves follow published conventions rather than being arbitrary: the caller
 
 The external sweep's `markdown-links / external` is **not** required and must not be added: it self-skips on `pull_request`, which is the whole point of reporting through an issue instead.
 
-`markdown-sembr / sembr` is not in the table **yet**, and the omission is timing rather than scope.
-Semantic line breaks are the standard for the repositories Fabrizio owns, so the intent is for the flag to require this context too — but a context required before the repository reports it stays permanently pending and blocks every merge there.
-So each repository reflows, adds the caller, and reports it green first; the `terraform-github` change comes last, once they all do.
-Until then, adopting `markdown-sembr.yml` is exactly as described above: a caller you add, not a check anything requires.
-
 **The flag defaults to `true`**, so an established repository needs no edit in `terraform-github` at all — adopting the workflows is enough, and the flag is already asserting that you have.
-What it does is attach `LYCHEE_GITHUB_TOKEN` and add the two contexts above to the repository's required status checks.
+What it does is attach `LYCHEE_GITHUB_TOKEN` and add the three contexts above to the repository's required status checks.
 
 The exception is a repository being **created**: it has no callers yet, so `terraform-github`'s creation runbook sets `markdown = false` on the create.
 The callers belong to the repository's first pull request — the docs scaffolding and CI that land before any other content — and the `terraform-github` follow-up that removes the create's `repository_exists = false` removes `markdown = false` with it, once that first pull request is on the default branch.
@@ -236,7 +232,7 @@ Layered on top, the [`markdown-standards` plugin](https://github.com/flungo/clau
 Install the plugin, start a Claude Code session on the target repo, and invoke **`/adopt-markdown-ci`**.
 It carries out the adoption end to end:
 
-- both caller workflows pinned to the current major, with the `permissions:` block `markdown-links.yml` needs, plus the recommended version check;
+- the caller workflows pinned to the current major, with the `permissions:` block `markdown-links.yml` needs, plus the recommended version check;
 - a repo-specific `.markdownlint-cli2.jsonc` and a seeded `.lycheeignore`, regenerated for that repo rather than copied from another;
 - `LYCHEE_GITHUB_TOKEN` provisioned **before** `.lycheeignore` is curated, so token artifacts never reach it;
 - each check introduced and confirmed red before its findings are fixed, in the order above, with the external sweep verified by `workflow_dispatch`;

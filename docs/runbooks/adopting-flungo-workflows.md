@@ -40,6 +40,7 @@ Once a repo pins `@vN`, a later major bump (a new `v<N+1>` branch) **freezes** t
 
 Running in your repo's context, it reads the majors you pin from your own workflow files, compares them to the current **stable** major in `flungo/github-workflows`, and opens — then auto-closes — a single migration issue in **your** repo when you're on a now-frozen major.
 The issue links every [upgrade guide](../reference/upgrading.md) section between the major you pin and the current one, in order, so it tells you how to catch up and not merely that you are behind ([ADR-013](../decisions/013-per-major-upgrade-guide.md)).
+Each link opens that section **on its own major's branch**, so the runbooks and decisions it refers you onward to are the ones that were true for the major you are moving to, rather than whatever `main` says today.
 
 **The issue arrives when a major is promoted, not when it is cut**, and the gap between the two can be weeks.
 A newly cut major is published but still settling: its contract can change in place while it is adopted, so nobody is pointed at it until it is promoted ([ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md)).

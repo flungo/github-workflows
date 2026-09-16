@@ -37,9 +37,13 @@ inputs:
   producer:
     description: The producer repository, owner/name.
     default: flungo/github-workflows
-  guide-url:
-    description: Base URL of the upgrade guide; section anchors (#vN) are appended.
-    default: https://github.com/flungo/github-workflows/blob/main/docs/reference/upgrading.md
+  guide-path:
+    description: >-
+      Repository-relative path of the upgrade guide. Each section is linked on
+      its own major's branch — `https://github.com/<producer>/blob/v<N>/<this>#vN`
+      — so the docs it links onward to are the ones that were true for the major
+      the reader is moving to, not the ones on `main` today.
+    default: docs/reference/upgrading.md
   marker:
     description: Hidden HTML comment used to find this issue again on later runs.
     default: '<!-- github-workflows-version-check -->'
@@ -65,6 +69,6 @@ runs:
         TARGET: ${{ inputs.target }}
         SETTLING: ${{ inputs.settling }}
         PRODUCER: ${{ inputs.producer }}
-        GUIDE_URL: ${{ inputs.guide-url }}
+        GUIDE_PATH: ${{ inputs.guide-path }}
         MARKER: ${{ inputs.marker }}
       run: '"$GITHUB_ACTION_PATH/build.sh"'

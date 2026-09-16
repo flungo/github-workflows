@@ -4,6 +4,11 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 Instead of each repo copy-pasting (and silently drifting) its CI, repos call these reusable workflows and pin the moving `@v2` branch.
 Fix or improve a workflow once here; merging to `main` advances `v2` automatically and every consumer follows.
 
+<!-- While MAJOR_BRANCH and STABLE_MAJOR differ in release.yml, a settling callout belongs here,
+     between settling:start and settling:end markers. ci.yml's release-state job checks that it is
+     present exactly while that is true. Template and rationale:
+     docs/runbooks/releasing.md#the-settling-period -->
+
 Three families:
 
 - **Terraform** — `terraform.yml`, `terraform-drift.yml`, for the Terraform repos.
@@ -37,10 +42,13 @@ jobs:
       LYCHEE_GITHUB_TOKEN: ${{ secrets.LYCHEE_GITHUB_TOKEN }}
 ```
 
-See the adopting runbooks for every workflow's inputs, secrets, and a copy-paste caller: [Terraform](docs/runbooks/adopting-terraform-workflows.md), [Provider](docs/runbooks/adopting-terraform-provider-workflows.md), [Markdown](docs/runbooks/adopting-markdown-workflows.md).
+See the adopting runbooks for every workflow's inputs, secrets, and a copy-paste caller: [Terraform](https://github.com/flungo/github-workflows/blob/v2/docs/runbooks/adopting-terraform-workflows.md), [Provider](https://github.com/flungo/github-workflows/blob/v2/docs/runbooks/adopting-terraform-provider-workflows.md), [Markdown](https://github.com/flungo/github-workflows/blob/v2/docs/runbooks/adopting-markdown-workflows.md).
 
-**Every consumer should also adopt [`flungo-workflows`](docs/runbooks/adopting-flungo-workflows.md)** — a one-line, credential-free opt-in caller whose `version-check` job raises an issue in the consumer's own repo if a future major bump ever leaves it pinning a frozen `@vN`.
+**Every consumer should also adopt [`flungo-workflows`](https://github.com/flungo/github-workflows/blob/v2/docs/runbooks/adopting-flungo-workflows.md)** — a one-line, credential-free opt-in caller whose `version-check` job raises an issue in the consumer's own repo if a future major bump ever leaves it pinning a frozen `@vN`.
 Recommended for every repo that pins these workflows.
+
+Those four links are pinned to **`v2`**, the current stable major, rather than being relative to whatever branch you are reading.
+A runbook hands you a caller to copy, and GitHub resolves its onward links against the ref it was opened at — so pinning keeps the instructions, the pin they tell you to use, and everything they refer you to on one coherent version, including while a newer major is [settling](docs/runbooks/releasing.md#the-settling-period).
 
 ## Standards & rationale
 

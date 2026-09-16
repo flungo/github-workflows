@@ -10,7 +10,11 @@
 # in the same PR. When that merges, this workflow sees the new name, creates it
 # at main, and the previous major branch is simply never advanced again — so
 # `@v<old>` consumers freeze on their last compatible commit until they migrate.
-# See docs/runbooks/releasing.md.
+#
+# Cutting a major does not yet ask anyone to move: STABLE_MAJOR stays where it
+# is, and a second manual bump of it — once adopting the new major has proved
+# its contract — is what promotes the new major to stable and starts prompting
+# consumers. See docs/runbooks/releasing.md.
 #
 # Push identity: the release App (RELEASE_APP_ID variable +
 # RELEASE_APP_PRIVATE_KEY secret) — the bypass actor on the v* ruleset, which the
@@ -36,10 +40,21 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # The current major release branch consumers pin as `@<this>`. Advancing it is
-  # automatic; bumping it (v1 -> v2 -> …) in a breaking PR is the only manual,
-  # reviewed step and the sole trigger for cutting a new major.
+  # The current major release branch. Advancing it is automatic; bumping it
+  # (v1 -> v2 -> …) in a breaking PR is the only manual, reviewed step and the
+  # sole trigger for cutting a new major.
   MAJOR_BRANCH: v2
+  # The major consumers are pointed at, which a cut deliberately leaves behind.
+  # A freshly cut major is published but still *settling*: its contract may take
+  # further breaking changes in place while it is adopted across the fleet, and
+  # nobody is prompted onto it until a second, manual bump of this value
+  # promotes it (ADR-014).
+  #
+  # Nothing in this workflow reads it. The version-check job in
+  # flungo-workflows.yml reads it from main — the one ref that always reflects
+  # the current state — and ci.yml's release-state job warns on every pull
+  # request for as long as the two differ.
+  STABLE_MAJOR: v2
 
 jobs:
   advance:

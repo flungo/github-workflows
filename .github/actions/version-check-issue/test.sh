@@ -50,7 +50,7 @@ hasnt() {
 }
 
 # --- multi-major span: v1 pinned, v3 current -> sections v2 then v3, in order.
-run "multi-major span" STALE_JSON='[{"major":1,"files":["terraform.yml"]}]' LATEST=3
+run "multi-major span" STALE_JSON='[{"major":1,"files":["terraform.yml"]}]' TARGET=3
 has "v2 section link" "- [\`v2\`]($guide#v2)"
 has "v3 section link" "- [\`v3\`]($guide#v3)"
 hasnt "no section for the pinned major itself" "($guide#v1)"
@@ -60,7 +60,7 @@ v3_line=$(grep -n "#v3)" "$out" | head -1 | cut -d: -f1)
 [ "$v2_line" -lt "$v3_line" ] || { echo "::error::sections are not in ascending order"; exit 1; }
 
 # --- single hop: v1 pinned, v2 current -> only v2.
-run "single hop" STALE_JSON='[{"major":1,"files":["markdown-lint.yml"]}]' LATEST=2
+run "single hop" STALE_JSON='[{"major":1,"files":["markdown-lint.yml"]}]' TARGET=2
 has "v2 section link" "- [\`v2\`]($guide#v2)"
 hasnt "no v3 section" "#v3)"
 has "names the pinning file" '`markdown-lint.yml`'
@@ -73,7 +73,7 @@ has "marker echoed alongside a body" '<!-- marker -->'
 grep -q '^marker<<' "$out" || { echo "::error::expected a marker output"; exit 1; }
 
 # --- already current: nothing stale -> empty outputs, not an error.
-run "already current" STALE_JSON='[]' LATEST=2
+run "already current" STALE_JSON='[]' TARGET=2
 grep -q '^marker<<' "$out" || { echo "::error::expected a marker output when up to date"; exit 1; }
 [ ! -s "$out" ] || grep -qE '^(title|body)<<' "$out"
 grep -A1 '^title<<' "$out" | sed -n '2p' | grep -q '^$' \
@@ -82,7 +82,7 @@ hasnt "no sections when up to date" "$guide#"
 
 # --- several frozen pins: the span starts from the OLDEST, so v2 is included.
 run "several frozen pins" \
-  STALE_JSON='[{"major":2,"files":["a.yml"]},{"major":1,"files":["b.yml"]}]' LATEST=3
+  STALE_JSON='[{"major":2,"files":["a.yml"]},{"major":1,"files":["b.yml"]}]' TARGET=3
 has "v2 section link" "- [\`v2\`]($guide#v2)"
 has "v3 section link" "- [\`v3\`]($guide#v3)"
 has "lists the v1 pin" '`@v1` (frozen)'
@@ -90,17 +90,37 @@ has "lists the v2 pin" '`@v2` (frozen)'
 
 # --- multiple files on one pin are listed together, sorted.
 run "multiple files" \
-  STALE_JSON='[{"major":1,"files":["z.yml","a.yml"]}]' LATEST=2
+  STALE_JSON='[{"major":1,"files":["z.yml","a.yml"]}]' TARGET=2
 has "both files, sorted" '`a.yml`, `z.yml`'
 
+# --- a settling major: v1 pinned, v2 stable, v3 cut but not yet promoted. The
+#     consumer goes to v2, and the body says why rather than looking stale to
+#     someone who can see the v3 branch (ADR-014).
+run "settling major named" \
+  STALE_JSON='[{"major":1,"files":["a.yml"]}]' TARGET=2 SETTLING=3
+has "migrates to the stable major" '→ migrate to `@v2`'
+has "title names the stable major" 'Pinned github-workflows major is frozen — v2 available'
+has "explains the settling major" '`v3` has also been published'
+has "v2 section link" "- [\`v2\`]($guide#v2)"
+hasnt "no section for the settling major" "($guide#v3)"
+
+# --- without a settling major the note is absent entirely, rather than empty.
+run "no settling note when none" \
+  STALE_JSON='[{"major":1,"files":["a.yml"]}]' TARGET=2
+hasnt "no settling sentence" 'has also been published'
+
 # --- fail loud rather than emitting a nonsense issue into someone's repo.
-expect_failure "non-numeric latest"    STALE_JSON='[]' LATEST=v2
-expect_failure "malformed stale JSON"  STALE_JSON='not json' LATEST=2
-expect_failure "stale not an array"    STALE_JSON='{"major":1}' LATEST=2
-expect_failure "entry missing files"   STALE_JSON='[{"major":1}]' LATEST=2
-expect_failure "entry with empty files" STALE_JSON='[{"major":1,"files":[]}]' LATEST=2
-expect_failure "non-integer major"     STALE_JSON='[{"major":"one","files":["a.yml"]}]' LATEST=2
+expect_failure "non-numeric target"    STALE_JSON='[]' TARGET=v2
+expect_failure "non-numeric settling"  STALE_JSON='[{"major":1,"files":["a.yml"]}]' TARGET=2 SETTLING=v3
+# A settling major at or below the target is a contradiction: the caller would
+# be sending a consumer onto a major it has just called unsettled.
+expect_failure "settling not newer"    STALE_JSON='[{"major":1,"files":["a.yml"]}]' TARGET=2 SETTLING=2
+expect_failure "malformed stale JSON"  STALE_JSON='not json' TARGET=2
+expect_failure "stale not an array"    STALE_JSON='{"major":1}' TARGET=2
+expect_failure "entry missing files"   STALE_JSON='[{"major":1}]' TARGET=2
+expect_failure "entry with empty files" STALE_JSON='[{"major":1,"files":[]}]' TARGET=2
+expect_failure "non-integer major"     STALE_JSON='[{"major":"one","files":["a.yml"]}]' TARGET=2
 # Nothing below the latest is not "stale" — the caller should have passed [].
-expect_failure "pin not actually behind" STALE_JSON='[{"major":2,"files":["a.yml"]}]' LATEST=2
+expect_failure "pin not actually behind" STALE_JSON='[{"major":2,"files":["a.yml"]}]' TARGET=2
 
 echo "version-check-issue: all tests passed"

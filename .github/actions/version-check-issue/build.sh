@@ -3,7 +3,12 @@
 #
 # Split out of flungo-workflows.yml so the one piece of real logic here — working
 # out which upgrade-guide sections lie between the major a consumer pins and the
-# current one — is unit-testable without a second major existing. See ADR-013.
+# one it should move to — is unit-testable without a second major existing. See
+# ADR-013.
+#
+# That destination is TARGET, the producer's current *stable* major, which is
+# not always the newest published: a major that is cut but still settling is
+# SETTLING, gets no section span, and is named only to explain itself (ADR-014).
 #
 # Reads from the environment, writes `title` and `body` to $GITHUB_OUTPUT.
 # Empty STALE_JSON is not an error: it is the up-to-date case, and both outputs
@@ -13,14 +18,17 @@ set -euo pipefail
 : "${GITHUB_OUTPUT:?GITHUB_OUTPUT must be set}"
 
 STALE_JSON=${STALE_JSON:-'[]'}
-LATEST=${LATEST:?LATEST must be set}
+TARGET=${TARGET:?TARGET must be set}
+SETTLING=${SETTLING:-}
 PRODUCER=${PRODUCER:?PRODUCER must be set}
 GUIDE_URL=${GUIDE_URL:?GUIDE_URL must be set}
 MARKER=${MARKER:?MARKER must be set}
 
 fail() { echo "::error::version-check-issue: $1"; exit 1; }
 
-[[ $LATEST =~ ^[0-9]+$ ]] || fail "LATEST must be a whole number, got '$LATEST'"
+[[ $TARGET =~ ^[0-9]+$ ]] || fail "TARGET must be a whole number, got '$TARGET'"
+[[ -z $SETTLING || $SETTLING =~ ^[0-9]+$ ]] || fail "SETTLING must be empty or a whole number, got '$SETTLING'"
+[[ -z $SETTLING || $SETTLING -gt $TARGET ]] || fail "SETTLING ($SETTLING) must be newer than TARGET ($TARGET)"
 
 echo "$STALE_JSON" | jq -e 'type == "array"' >/dev/null 2>&1 \
   || fail "STALE_JSON must be a JSON array, got '$STALE_JSON'"
@@ -55,45 +63,57 @@ if [ "$count" -eq 0 ]; then
 fi
 
 lowest=$(echo "$STALE_JSON" | jq 'map(.major) | min')
-[ "$lowest" -lt "$LATEST" ] \
-  || fail "every pinned major ($lowest) is already at or beyond the latest ($LATEST) — nothing is stale, so STALE_JSON should have been empty"
+[ "$lowest" -lt "$TARGET" ] \
+  || fail "every pinned major ($lowest) is already at or beyond the stable one ($TARGET) — nothing is stale, so STALE_JSON should have been empty"
 
 repo_name=${PRODUCER##*/}
 
 # One bullet per frozen pin, naming the files that carry it.
-pins=$(echo "$STALE_JSON" | jq -r --arg latest "$LATEST" '
+pins=$(echo "$STALE_JSON" | jq -r --arg target "$TARGET" '
   sort_by(.major)[]
   | "- `@v\(.major)` (frozen) in " + (.files | sort | map("`\(.)`") | join(", "))
-    + " → migrate to `@v\($latest)`"')
+    + " → migrate to `@v\($target)`"')
 
 # The upgrade guide has one section per major, and each assumes arrival from the
 # major before it — so a consumer spanning several needs every section between
-# its oldest pin and the current major, in ascending order, not just the last.
+# its oldest pin and the target, in ascending order, not just the last. A
+# settling major has no section to work through yet: it is not a destination.
 sections=""
-for (( major = lowest + 1; major <= LATEST; major++ )); do
+for (( major = lowest + 1; major <= TARGET; major++ )); do
   sections+="- [\`v${major}\`](${GUIDE_URL}#v${major})"$'\n'
 done
 sections=${sections%$'\n'}
 
+# A newer major exists but is not yet somewhere to go. Said here rather than
+# left out, because the consumer can see that branch on GitHub and would
+# otherwise read this issue as out of date.
+settling_note=""
+if [ -n "$SETTLING" ]; then
+  settling_note="
+\`v$SETTLING\` has also been published, but it is still settling — its contract can change in place until it is promoted, so \`@v$TARGET\` is where to go for now.
+This issue moves on to \`@v$SETTLING\` once that happens.
+"
+fi
+
 body=$(cat <<EOF
 $MARKER
-\`$PRODUCER\` has published **v$LATEST**, but this repo still pins an older, now-frozen major:
+\`$PRODUCER\` has published **v$TARGET**, but this repo still pins an older, now-frozen major:
 
 $pins
 
 A frozen major receives no further updates.
-
+$settling_note
 ## What to do
 
 Work through these upgrade guide sections **in order** — each assumes you are coming from the major before it:
 
 $sections
 
-Then bump the caller \`uses: …@vN\` refs to \`@v$LATEST\`.
+Then bump the caller \`uses: …@vN\` refs to \`@v$TARGET\`.
 
-_Raised by the opt-in \`version-check\` job; it closes this issue automatically once every ref is on the latest major._
+_Raised by the opt-in \`version-check\` job; it closes this issue automatically once no ref is on a frozen major._
 EOF
 )
 
-emit title "Pinned $repo_name major is frozen — v$LATEST available"
+emit title "Pinned $repo_name major is frozen — v$TARGET available"
 emit body "$body"

@@ -38,8 +38,13 @@ Context: `flungo-workflows / version-check`.
 
 Once a repo pins `@vN`, a later major bump (a new `v<N+1>` branch) **freezes** the old major; this job is what stops the repo silently lagging on a release that no longer receives updates.
 
-Running in your repo's context, it reads the majors you pin from your own workflow files, compares them to the latest major published in `flungo/github-workflows`, and opens — then auto-closes — a single migration issue in **your** repo when you're on a now-frozen major.
+Running in your repo's context, it reads the majors you pin from your own workflow files, compares them to the current **stable** major in `flungo/github-workflows`, and opens — then auto-closes — a single migration issue in **your** repo when you're on a now-frozen major.
 The issue links every [upgrade guide](../reference/upgrading.md) section between the major you pin and the current one, in order, so it tells you how to catch up and not merely that you are behind ([ADR-013](../decisions/013-per-major-upgrade-guide.md)).
+
+**The issue arrives when a major is promoted, not when it is cut**, and the gap between the two can be weeks.
+A newly cut major is published but still settling: its contract can change in place while it is adopted, so nobody is pointed at it until it is promoted ([ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md)).
+If you can see a newer `vN` branch and no issue has appeared, that is the job working, and the issue you eventually get will say so.
+Migrating during that window is your call — your own major is frozen from the cut either way — but you are then adopting a contract that may still be corrected in place.
 
 Rationale: [ADR-004](../decisions/004-version-check-opt-in.md); how it fits releases: [`releasing.md` § Tracking consumer migration](releasing.md#tracking-consumer-migration).
 

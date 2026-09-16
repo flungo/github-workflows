@@ -6,9 +6,15 @@
 #
 # version-check — "am I on a frozen major?". A consumer calls this on a
 # schedule. It compares the flungo/github-workflows major(s) the consumer pins
-# (read from the consumer's own workflow files) against the latest major
-# published here, and — when the consumer is pinning a now-frozen major — opens
-# (and later closes) a single tracking issue in the CONSUMER's own repo.
+# (read from the consumer's own workflow files) against the major published
+# here that is currently *stable*, and — when the consumer is pinning a
+# now-frozen major — opens (and later closes) a single tracking issue in the
+# CONSUMER's own repo.
+#
+# Stable, not newest: cutting a major publishes it while its contract is still
+# settling, and STABLE_MAJOR (declared in release.yml on main) is bumped by hand
+# once adopting it has proved that contract. Until then consumers are left on
+# the previous major and told nothing. See ADR-014.
 #
 # The issue names the upgrade guide sections between the pinned major and the
 # current one, in order, so the notice that a consumer is behind also says how
@@ -89,15 +95,49 @@ jobs:
             }
             const latest = Math.max(...majors);
 
-            // 3. Any pinned major below the latest is frozen. Shaped for the
+            // 3. The major to prompt onto. Cutting a major publishes it but
+            //    leaves it *settling* — its contract can still change in place
+            //    while it is adopted — so the branch existing is not the signal
+            //    to migrate. STABLE_MAJOR is, and it is promoted by hand
+            //    (ADR-014). Read from main: the ref that always carries the
+            //    current state, and the only one a consumer frozen on an older
+            //    major can name without knowing what the newer ones are called.
+            //
+            //    Unreadable, absent or nonsense ⇒ fall back to `latest`, which
+            //    is what this job did before the state existed. A prompt that
+            //    comes early costs a week of premature attention; one that never
+            //    comes is the silent drift ADR-004 exists to catch.
+            let target = latest;
+            try {
+              const { data } = await github.rest.repos.getContent({
+                owner: pOwner, repo: pRepo, path: '.github/workflows/release.yml', ref: 'main',
+              });
+              const text = Buffer.from(data.content || '', data.encoding || 'base64').toString('utf8');
+              const declared = /^\s*STABLE_MAJOR:\s*v(\d+)\s*$/m.exec(text);
+              if (declared) {
+                target = Math.min(parseInt(declared[1], 10), latest);
+              } else {
+                core.warning(`No STABLE_MAJOR declared in ${pOwner}/${pRepo}; treating v${latest} as stable.`);
+              }
+            } catch (e) {
+              core.warning(`Could not read the release state from ${pOwner}/${pRepo} (${e.message}); treating v${latest} as stable.`);
+            }
+            if (target < latest) {
+              core.notice(`v${latest} is published but still settling; checking against the stable major, v${target}.`);
+            }
+
+            // 4. Any pinned major below the stable one is frozen. Shaped for the
             //    version-check-issue action, which validates it again rather
             //    than trusting this.
             const stale = [...pinned.entries()]
-              .filter(([maj]) => maj < latest)
+              .filter(([maj]) => maj < target)
               .sort(([a], [b]) => a - b)
               .map(([major, set]) => ({ major, files: [...set].sort() }));
 
-            core.setOutput('latest', String(latest));
+            core.setOutput('target', String(target));
+            // Empty unless a newer major is settling — the issue says so rather
+            // than leaving a consumer to wonder why it is sent to an older one.
+            core.setOutput('settling', target < latest ? String(latest) : '');
             core.setOutput('stale', JSON.stringify(stale));
 
       - name: Build the migration issue
@@ -105,13 +145,14 @@ jobs:
         uses: ./.github-workflows/.github/actions/version-check-issue
         with:
           stale: ${{ steps.survey.outputs.stale }}
-          latest: ${{ steps.survey.outputs.latest }}
+          target: ${{ steps.survey.outputs.target }}
+          settling: ${{ steps.survey.outputs.settling }}
 
       - name: Upsert or close the tracking issue
         uses: actions/github-script@v9
         env:
           STALE: ${{ steps.survey.outputs.stale }}
-          LATEST: ${{ steps.survey.outputs.latest }}
+          TARGET: ${{ steps.survey.outputs.target }}
           MARKER: ${{ steps.issue.outputs.marker }}
           ISSUE_TITLE: ${{ steps.issue.outputs.title }}
           ISSUE_BODY: ${{ steps.issue.outputs.body }}
@@ -123,7 +164,7 @@ jobs:
             // marker, so it is the only thing that knows what to search for.
             const marker = process.env.MARKER;
             const stale = JSON.parse(process.env.STALE || '[]');
-            const latest = process.env.LATEST;
+            const target = process.env.TARGET;
 
             const open = await github.paginate(github.rest.issues.listForRepo, {
               owner, repo, state: 'open', labels: label, per_page: 100,
@@ -143,10 +184,10 @@ jobs:
             } else if (existing) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: existing.number,
-                body: `All \`flungo/github-workflows\` refs are on the latest major (v${latest}) — closing.`,
+                body: `No \`flungo/github-workflows\` ref is on a frozen major (the current stable major is v${target}) — closing.`,
               });
               await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
               core.info(`Closed migration issue #${existing.number}.`);
             } else {
-              core.info(`Up to date: all pins on the latest major (v${latest}).`);
+              core.info(`Up to date: no pin is behind the stable major (v${target}).`);
             }

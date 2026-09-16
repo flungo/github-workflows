@@ -137,4 +137,7 @@ A long-lived branch also rots across exactly the multi-week pauses this reposito
   Bounded by who adopts during settling — in practice the person settling it.
 - **`release.yml`'s path is now part of the consumer contract**, since a frozen consumer's check reads that file from `main` by name.
   The deferred `self-` prefix rename in `CLAUDE.md` would break every frozen consumer's read, which now falls back to treating the newest major as stable — so that rename needs the reader to tolerate both paths first.
+- **A new adopter who arrives at a runbook directly never sees the callout.**
+  The README is the only place that says a major is settling, so a search result or a deep link bypasses the warning entirely — the pinned links help only someone who comes through the front page.
+  Closing that gap would need the default-branch switch this rejects.
 - **One more step when cutting a major**, and the upgrade guide's new section stays editable until the promotion rather than being finished at the cut.

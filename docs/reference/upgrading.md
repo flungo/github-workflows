@@ -17,6 +17,9 @@ Sections are not written to be skipped, and a later one may depend on the earlie
 
 If you are here because the [`version-check`](../runbooks/adopting-flungo-workflows.md) job opened an issue in your repository, that issue links to every section between the major you pin and the current one.
 
+**A section is provisional until its major is promoted to stable** ([ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md)).
+A freshly cut major settles while it is adopted, and its section is amended by whatever that turns up — so a section you were prompted onto is a finished one, and a section for a major nobody has prompted you onto yet may still change.
+
 ## v2
 
 The decisions behind it: [ADR-011](../decisions/011-reusable-job-ids-are-the-check-name.md) and [ADR-012](../decisions/012-flungo-workflows-meta-workflow.md).

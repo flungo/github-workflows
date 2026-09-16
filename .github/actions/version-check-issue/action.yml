@@ -20,9 +20,20 @@ inputs:
       [<string>, ...]}, ...]. An empty array is the up-to-date case and yields
       empty outputs rather than an error.
     default: '[]'
-  latest:
-    description: The current major published by the producer, as a bare integer (e.g. 2).
+  target:
+    description: >-
+      The major the consumer should be on — the producer's current *stable*
+      major, as a bare integer (e.g. 2). Not necessarily the newest published:
+      a major that is cut but still settling is not one to migrate onto
+      (ADR-014).
     required: true
+  settling:
+    description: >-
+      The newer major that is published but still settling, as a bare integer,
+      or empty when the target is the newest. Present, it earns a line in the
+      body saying so — a consumer that can see a newer major on GitHub is
+      otherwise left wondering why it is being sent to an older one.
+    default: ''
   producer:
     description: The producer repository, owner/name.
     default: flungo/github-workflows
@@ -51,7 +62,8 @@ runs:
       shell: bash
       env:
         STALE_JSON: ${{ inputs.stale }}
-        LATEST: ${{ inputs.latest }}
+        TARGET: ${{ inputs.target }}
+        SETTLING: ${{ inputs.settling }}
         PRODUCER: ${{ inputs.producer }}
         GUIDE_URL: ${{ inputs.guide-url }}
         MARKER: ${{ inputs.marker }}

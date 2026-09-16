@@ -29,30 +29,81 @@ See [ADR-011](../decisions/011-reusable-job-ids-are-the-check-name.md).
 In the **same PR** as the breaking change:
 
 1. Edit `MAJOR_BRANCH` in `release.yml` — bump it one major, e.g. `v2` → `v3`.
+   **Leave `STABLE_MAJOR` alone.**
+   The gap between the two is the new major's [settling period](#the-settling-period), and opening it is the point.
 2. **Add the new major's section to [`upgrading.md`](../reference/upgrading.md)** — what breaks and what a consumer must do about it, in the same PR as the breaking change while you still hold the context.
    Breaking changes only; see [ADR-013](../decisions/013-per-major-upgrade-guide.md) for what belongs there and what does not.
-3. **Update the docs that track the latest version.**
-   Search the repo for `v<old>` — broader than `@v<old>`, so it also catches prose and tables that name the version without the `@`, at the cost of more matches to sift — and bump every reference meant to show consumers the current major (the [README](../../README.md) and the adoption runbooks: [Terraform](adopting-terraform-workflows.md), [Markdown](adopting-markdown-workflows.md)) to the new major.
-   Leave version-specific mentions — historical and migration notes — as they are.
-4. Land the PR as normal.
+   It stays editable until the promotion.
+3. Land the PR as normal.
 
 On merge, `release.yml` sees the new name, **creates `v<new>` at `main`**, and never touches `v<old>` again — so `@v<old>` consumers **freeze** on their last compatible commit.
 Don't pre-create `v<new>` by hand: creation is restricted to the release App and the push would be rejected (see [Never](#never)).
 That one-line edit, visible in the PR diff, is the whole "this is a major" decision; there is nothing else to parse or label.
 
-Then, on each consumer, migrate `@v<old>` → `@v<new>` when you're ready and have accommodated the breaking change.
-Consumers move deliberately — nothing is pushed onto them.
-Opted-in consumers raise their own migration reminder — see [Tracking consumer migration](#tracking-consumer-migration).
+Nobody is told to migrate yet.
+The docs that advertise the current version are not bumped here either — that happens at the promotion, so they never point consumers at a major that is still settling.
+
+## The settling period
+
+A cut major is published but not yet stable, and the two are separate events ([ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md)).
+Between them:
+
+- **No consumer is prompted onto it.**
+  `version-check` compares pins against `STABLE_MAJOR`, so opted-in consumers stay on the previous major and hear nothing.
+- **The new major can take a further breaking change in place.**
+  Land it on `main` as an ordinary merge and `release.yml` advances the new major onto it.
+  **No `MAJOR_BRANCH` bump** — nobody has been asked to move yet, so changing it costs nobody a migration.
+- **Every pull request carries a reminder.**
+  `ci.yml`'s `release-state` job annotates each run for as long as the two values differ.
+  The annotation is non-blocking: settling is a legitimate state to merge onto, and it lasts as long as adopting the major takes.
+
+This is what makes cutting a major incremental.
+The contract is proved by adopting it, one repository at a time, and what that turns up — a check name that reads badly in a checks list, a required-check string that had to change in an order nobody predicted — arrives after the cut.
+Without the window, the only options are one enormous pull request that gets the whole major right before cutting it, or a `v<new+1>` because `v<new>` got a name slightly wrong.
+
+Use it that way: **cut the major, then migrate your own repositories**, and fix what that finds on the new major directly.
+
+Two things it does *not* change:
+
+- **The old major froze at the cut**, not at the promotion — `release.yml` stopped advancing it the moment `MAJOR_BRANCH` changed.
+  Settling delays the prompt, not the freeze.
+  A fix the frozen major genuinely needs can still be [backported](#patching-a-frozen-major).
+- **A settling change is still a breaking change.**
+  If it changes what a consumer must do, amend that major's section in [`upgrading.md`](../reference/upgrading.md) in the same PR.
+
+Anyone adopting during the window accepts changes in place.
+In practice that is you, migrating the fleet.
+
+## Promoting a major to stable
+
+When adopting the new major across your own repositories has proved the contract, promote it.
+In one PR:
+
+1. Edit `STABLE_MAJOR` in `release.yml` to match `MAJOR_BRANCH`.
+2. **Update the docs that track the current version.**
+   Search the repo for `v<old>` — broader than `@v<old>`, so it also catches prose and tables that name the version without the `@`, at the cost of more matches to sift — and bump every reference meant to show consumers the current major (the [README](../../README.md) and the adoption runbooks: [Terraform](adopting-terraform-workflows.md), [Markdown](adopting-markdown-workflows.md)) to the new major.
+   Leave version-specific mentions — historical and migration notes — as they are.
+3. Settle the new major's [`upgrading.md`](../reference/upgrading.md) section: it stops being editable here and becomes the record consumers migrate against.
+
+On merge, the `release-state` warning clears, and opted-in consumers still on an older major raise their own migration reminder on their next scheduled run — see [Tracking consumer migration](#tracking-consumer-migration).
+Consumers move deliberately; nothing is pushed onto them.
+
+Promotion is one-way.
+A breaking change after it cuts the next major, as normal.
 
 ## A breaking change you didn't foresee
 
 When an incompatibility is noticed only *after* it merged — `release.yml` has already fast-forwarded `@v<current>` onto it:
 
-1. **Prefer fixing it forward.**
+1. **Check whether the current major is still settling.**
+   If `MAJOR_BRANCH` and `STABLE_MAJOR` differ — `ci.yml`'s `release-state` job says so on every PR — nobody has been prompted onto this major yet.
+   Fix it in place on `main`, amend that major's [`upgrading.md`](../reference/upgrading.md) section, and stop.
+   No new major; that is what [the settling period](#the-settling-period) is for.
+2. **Otherwise prefer fixing it forward.**
    If compatibility can be restored on `main` — re-add the removed input as optional, reinstate the old default — do that.
    The next merge advances the fix onto `@v<current>` and no new major is needed.
    Cutting a major forces *every* downstream repo to migrate, so avoid it unless the change genuinely can't be reconciled.
-2. **If a new major is truly required:**
+3. **If a new major is truly required:**
    - **Cut the next major:** follow [Making a breaking change you foresee](#making-a-breaking-change-you-foresee-cut-the-next-major), then come back here.
      The new major branch is created at `main` with the breaking change and becomes the new line.
    - **Then restore the old major:** open a PR targeting `v<old>` (base `v<old>`) that reverts the breaking additions.
@@ -68,9 +119,12 @@ It merges straight onto that branch; nothing auto-advances it.
 ## Tracking consumer migration
 
 Nothing forces a consumer off a frozen major, so a repo can silently lag on `@v<old>` after a new major is cut.
-To surface that, consumers **opt in** to the reusable [`flungo-workflows.yml`](../../.github/workflows/flungo-workflows.yml)'s `version-check` job: on a schedule it compares the majors that consumer pins against the latest published here, and opens — then auto-closes — a tracking issue **in that consumer's own repo** when it's on a frozen major.
+To surface that, consumers **opt in** to the reusable [`flungo-workflows.yml`](../../.github/workflows/flungo-workflows.yml)'s `version-check` job: on a schedule it compares the majors that consumer pins against the current stable major here, and opens — then auto-closes — a tracking issue **in that consumer's own repo** when it's on a frozen major.
 It needs no credential (the consumer reads this public repo's majors and writes the issue with its own token).
 See [`adopting-flungo-workflows.md`](adopting-flungo-workflows.md) for the opt-in caller, and [ADR-004](../decisions/004-version-check-opt-in.md).
+
+The comparison is against `STABLE_MAJOR`, read from `release.yml` on `main` — so the first issues appear when a major is [promoted](#promoting-a-major-to-stable), not when it is cut, and a repository lagging two majors is pointed at the settled one rather than the one still moving.
+If that value can't be read, the job falls back to the newest published major and prompts as it did before the state existed.
 
 A single producer-side rollup of *every* consumer's state is intentionally **not** built — it would need a broad cross-owner credential — and is left as a possible future addition.
 
@@ -154,7 +208,8 @@ Exposure of the key is bounded by the App's single permission and single-repo in
   Doing either deliberately means updating `MAJOR_BRANCH` *and* temporarily relaxing the ruleset in `terraform-github`.
 - **Never create a `v[0-9]*` branch by hand** — you can't: creation of any matching ref is restricted to the release App, so the attempt is rejected, admins included (the admin bypass is pull-request-scoped and covers neither creation nor deletion).
   The pattern is fnmatch rather than a regex, so it catches `v9`, `v1x` and `v2-test` too.
-  The cost it guards against is worst for an *exact* name: a hand-made `v3` would make [`flungo-workflows.yml`](../../.github/workflows/flungo-workflows.yml) read `v3` as the latest published major and raise migration issues in every opted-in consumer, for a major nobody cut.
+  The cost it guards against is worst for an *exact* name: a hand-made `v3` would appear to every opted-in consumer as a published major nobody cut.
+  Since [ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md) that no longer raises migration issues — [`flungo-workflows.yml`](../../.github/workflows/flungo-workflows.yml) prompts against `STABLE_MAJOR`, which such a branch does not touch — but it still reports the phantom major as settling in every consumer's issue, and the ruleset remains the thing that stops it.
   The rejection message explains none of this, so give scratch branches a name outside the pattern and let `release.yml` cut the real ones.
   Bootstrapping or restoring a `v*` branch by hand means temporarily relaxing the ruleset in `terraform-github`.
 - **Never force-push a `v*` branch** — consumers pin these branches, and a rewrite changes history under them.

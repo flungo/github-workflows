@@ -1,5 +1,6 @@
-# Self-CI for this repository: lint the reusable workflows with actionlint, and
-# dogfood the repo's own reusable Markdown workflows against its docs. The
+# Self-CI for this repository: lint the reusable workflows with actionlint,
+# dogfood the repo's own reusable Markdown workflows against its docs, and
+# report the release state (whether a cut major is still settling). The
 # composite actions are tested separately, one isolated job per action, in
 # action-tests.yml.
 name: CI
@@ -26,6 +27,51 @@ jobs:
         uses: docker://rhysd/actionlint:latest
         with:
           args: -color
+
+  release-state:
+    # Surfaces a major that is cut but still settling (MAJOR_BRANCH ahead of
+    # STABLE_MAJOR — ADR-014), so the divergence is visible on every pull
+    # request rather than something anyone has to remember to look for.
+    #
+    # Deliberately non-blocking: settling is a legitimate state to merge onto
+    # and can last as long as adopting the major takes, so it annotates and
+    # passes. It fails only on a pair that cannot be right, which would
+    # misdirect every consumer's version-check.
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compare the cut major with the stable one
+        run: |
+          set -euo pipefail
+          file=.github/workflows/release.yml
+
+          die() { echo "::error file=$1::$2"; exit 1; }
+
+          value=''
+          read_major() {
+            local name=$1 count
+            value=$(sed -n "s/^  ${name}: *\(v[0-9][0-9]*\) *\$/\1/p" "$file")
+            count=$(printf '%s\n' "$value" | grep -c . || true)
+            if [ "$count" -ne 1 ]; then
+              die "$file" "$name must appear exactly once as a bare vN value; found $count."
+            fi
+          }
+
+          read_major MAJOR_BRANCH; major=$value
+          read_major STABLE_MAJOR; stable=$value
+
+          if [ "${stable#v}" -gt "${major#v}" ]; then
+            die "$file" "STABLE_MAJOR ($stable) is ahead of MAJOR_BRANCH ($major) — a major cannot be stable before it is cut."
+          fi
+
+          if [ "$stable" = "$major" ]; then
+            echo "Release state: $major is cut and stable."
+            exit 0
+          fi
+
+          line=$(grep -n '^  STABLE_MAJOR:' "$file" | cut -d: -f1)
+          echo "::warning file=$file,line=$line::$major is cut but still settling — consumers are still pointed at $stable, and its contract can still change in place. Promote it by setting STABLE_MAJOR to $major once adopting it has proved the contract (docs/runbooks/releasing.md § Promoting a major to stable)."
 
   markdown-lint:
     if: github.event_name == 'pull_request' || github.event_name == 'push'

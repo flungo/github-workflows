@@ -31,6 +31,8 @@ Three families:
   Consumers pin `@v2` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)).
   `release.yml` fast-forwards `v2` to `main` automatically on every merge, so fixes reach consumers with no bump step.
   A **breaking** input/secret change must bump `MAJOR_BRANCH` in `release.yml` (`v2` → `v3`) in the same PR — that reviewed one-line edit is the whole major-version decision, and it freezes the old major.
+  It does **not** ask anyone to migrate: the cut leaves `STABLE_MAJOR` behind, and the new major *settles* — taking further breaking changes in place, with no consumer prompted onto it — until a second, manual bump of `STABLE_MAJOR` promotes it ([ADR-014](docs/decisions/014-promote-a-major-to-stable-by-hand.md)).
+  So cut early and settle the contract by adopting it across the fleet; `ci.yml`'s `release-state` job warns on every PR while the two values differ, and the adoption docs are bumped by the promotion, not the cut.
   Never create a `vN` tag (`@vN` would then be ambiguous), and never push a `v*` branch directly — it moves only via `release.yml` or a PR that targets it.
   The whole `v[0-9]*` namespace is **create-restricted** to the release App, so never name a working branch `v3`, `v2x` or similar: the push is rejected, and the message won't say why.
   See [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md); any change to inputs/secrets is a change to the contract — update the relevant adopting runbook and the consumers.
@@ -73,7 +75,8 @@ Improvements intentionally not done yet:
   A repo that has not reflowed cannot be included, so this is a staged rollout ending in the `markdown = true` change, not a single Terraform apply that starts it.
 - **Separate the products from the self-CI more visibly.**
   GitHub discovers workflows only flat in `.github/workflows/` (no subdirectories), so the reusable products and the self-CI (`ci.yml`, `action-tests.yml`, `release.yml`) can only be separated by naming and docs — the status quo everywhere, but worth tightening (#23 follow-up).
-  A product's filename is its public contract (consumers pin the full path), so the convention burdens the *internal* files: a **`self-` prefix** (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`) — it takes the slot the product family name occupies on the other filenames, and the rename is non-breaking, any time.
+  A product's filename is its public contract (consumers pin the full path), so the convention burdens the *internal* files: a **`self-` prefix** (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`) — it takes the slot the product family name occupies on the other filenames.
+  `release.yml` is the exception to "non-breaking, any time": every consumer's `version-check` reads `STABLE_MAJOR` out of it by path from `main` ([ADR-014](docs/decisions/014-promote-a-major-to-stable-by-hand.md)), and a consumer frozen on an older major runs that major's copy of the reader — so make the reader tolerate both paths, ship that, and only then rename.
   Ideally add a self-CI guard asserting unprefixed workflows are `workflow_call`-only (accommodating the dogfooded Markdown calls).
   Renaming the products themselves (GitHub's `reusable-*` docs style) is a breaking contract change that would have to ride the `v3` batch above.
 

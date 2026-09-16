@@ -91,7 +91,8 @@ jobs:
         uses: ./.github/actions/version-check-issue
         with:
           stale: '[{"major":1,"files":["self-test.yml"]}]'
-          latest: '3'
+          target: '3'
+          settling: '4'
           guide-url: https://example.invalid/upgrading.md
 
       - name: Assert the wired outputs
@@ -100,10 +101,27 @@ jobs:
           BODY: ${{ steps.smoke.outputs.body }}
         run: |
           set -eu
+          guide=https://example.invalid/upgrading.md
+
+          # `if`, not `!`: a bare `!` mid-script skips errexit, so the assertion
+          # would pass whatever the body said (SC2251).
+          absent() {
+            if printf '%s' "$BODY" | grep -qF -- "$1"; then
+              echo "::error::unexpected in the issue body: $1"
+              exit 1
+            fi
+          }
+
           [ "$TITLE" = "Pinned github-workflows major is frozen — v3 available" ]
-          printf '%s' "$BODY" | grep -qF -- '](https://example.invalid/upgrading.md#v2)'
-          printf '%s' "$BODY" | grep -qF -- '](https://example.invalid/upgrading.md#v3)'
           printf '%s' "$BODY" | grep -qF -- 'self-test.yml'
+          printf '%s' "$BODY" | grep -qF -- "]($guide#v2)"
+          printf '%s' "$BODY" | grep -qF -- "]($guide#v3)"
+
+          # The settling major is named but is not a destination. `.` stands in
+          # for the backticks around it, which cannot be written literally: a
+          # backtick reads as a command substitution that won't expand (SC2016).
+          printf '%s' "$BODY" | grep -qE '.v4. has also been published'
+          absent "$guide#v4"
 
   check-semantic-line-breaks:
     runs-on: ubuntu-latest

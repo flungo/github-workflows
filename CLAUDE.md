@@ -86,8 +86,8 @@ Improvements intentionally not done yet:
 
 ## Working in this repo with Claude Code
 
-Match CI's markdownlint locally before pushing, or you chase findings CI never raises and miss ones it does: `npm install markdownlint-cli2@0.23.1` (markdownlint 0.41.1), the version `DavidAnson/markdownlint-cli2-action@v24` pins.
-Re-check it at the tag when the action is bumped.
+Match CI's markdownlint locally before pushing, or you chase findings CI never raises and miss ones it does: `npm install markdownlint-cli2@0.23.2` (markdownlint 0.41.1), the version `DavidAnson/markdownlint-cli2-action@v24` pins.
+`@v24` is a moving major tag, so this pin drifts on its own — which is how it went stale before: re-derive it from the action's own manifest at `https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2-action/v24/package.json` rather than trusting this line, and correct it here when it has moved.
 
 The repo's prose follows semantic line breaks and `markdown-sembr.yml` enforces the MUST rule, so keep one sentence per source line in any Markdown you touch.
 

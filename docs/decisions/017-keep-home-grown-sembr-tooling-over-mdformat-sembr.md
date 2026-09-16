@@ -26,7 +26,7 @@ That design carries three consequences that no configuration removes:
 - **The check is the whole formatter.**
   `mdformat --check` compares a file to its full reformat and exits non-zero on any difference, so it enforces every mdformat style choice — thematic breaks as 70 underscores, every ordered item numbered `1.`, tables padded to column width, setext headings and indented code rewritten — and not only the sentence rule.
   Style ownership moves from the caller's `.markdownlint-cli2.jsonc`, which ADR-015 deliberately left as the adopting repo's, to mdformat's defaults.
-  Options narrow the gap: with `--compact-tables`, `--number` and the `mdformat-simple-breaks` plugin, a full reformat of this repo and of `claude-plugins` differs from the committed tree by 50 and 34 lines respectively, almost all of them the table delimiter row (`| -- |` for `| --- |`), and markdownlint 0.23.2 under each repo's own config passes the result.
+  Options narrow the gap: with `--compact-tables`, `--number` and the `mdformat-simple-breaks` plugin, a full reformat of this repo and of `claude-plugins` differs from the committed tree by 50 and 34 lines respectively, almost all of them the table delimiter row (`| -- |` for `| --- |`), and `markdownlint-cli2` 0.23.2 under each repo's own config passes the result.
   The gap is small, but it is a second style authority, and it is the wrong shape for a check whose contract is one rule.
 - **A finding has no position.**
   `--check` prints `File "<path>" is not formatted.` and nothing else — no line, no column, no annotation.

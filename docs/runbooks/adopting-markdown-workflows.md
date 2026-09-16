@@ -281,10 +281,11 @@ Reading these first means going straight to implementing the plan instead of re-
 
 **Match the CI tool versions locally, or you chase findings CI never reports.**
 
-- `DavidAnson/markdownlint-cli2-action@v29` pins a specific `markdownlint-cli2` (e.g. 0.17.2 / markdownlint 0.37.4).
+- `markdown-lint.yml` runs `DavidAnson/markdownlint-cli2-action@v24`, which pins a specific `markdownlint-cli2` (0.23.2 / markdownlint 0.41.1 as of 2026-09-16).
   A newer `markdownlint-cli2` installed locally carries rules the pinned CI version does **not** have — e.g. `MD060` (table-column-style), which fires on every table and produces dozens of findings CI will never raise.
   Pin the local tool to the CI version: `npm install markdownlint-cli2@<pinned>`.
 - Find the action's pinned version by reading its manifest at the tag: `https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2-action/<tag>/package.json` (readable via `WebFetch` even for repos outside the session scope).
+  `@v24` is a moving major tag, so re-derive it rather than trusting the pair above or one recorded in a repo: the pin drifts with no commit anywhere to mark it, which is how several of these records went stale.
 - `markdownlint-cli2` only accepts a config file **named** `.markdownlint-cli2.jsonc` (or a `*.markdownlint-cli2.jsonc` prefix); `--config /tmp/arbitrary.json` is rejected.
   Name any throwaway config accordingly (e.g. `check.markdownlint-cli2.jsonc`).
 - Record the pinned version in the adopting repo's `CLAUDE.md`, so the next agent matches CI on the first run.

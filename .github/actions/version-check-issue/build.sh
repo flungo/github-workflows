@@ -21,7 +21,7 @@ STALE_JSON=${STALE_JSON:-'[]'}
 TARGET=${TARGET:?TARGET must be set}
 SETTLING=${SETTLING:-}
 PRODUCER=${PRODUCER:?PRODUCER must be set}
-GUIDE_URL=${GUIDE_URL:?GUIDE_URL must be set}
+GUIDE_PATH=${GUIDE_PATH:?GUIDE_PATH must be set}
 MARKER=${MARKER:?MARKER must be set}
 
 fail() { echo "::error::version-check-issue: $1"; exit 1; }
@@ -78,9 +78,16 @@ pins=$(echo "$STALE_JSON" | jq -r --arg target "$TARGET" '
 # major before it — so a consumer spanning several needs every section between
 # its oldest pin and the target, in ascending order, not just the last. A
 # settling major has no section to work through yet: it is not a destination.
+#
+# Each link is pinned to its OWN major's branch rather than to main. A section
+# describes a hop, and the docs it links onward to — runbooks, ADRs, workflow
+# files — are resolved by GitHub against the same ref, so pinning hands the
+# reader the repository as it stood for the version they are moving to. On main
+# those same relative links render whatever is true today, which for a consumer
+# several majors behind is a repository they have not reached yet.
 sections=""
 for (( major = lowest + 1; major <= TARGET; major++ )); do
-  sections+="- [\`v${major}\`](${GUIDE_URL}#v${major})"$'\n'
+  sections+="- [\`v${major}\`](https://github.com/${PRODUCER}/blob/v${major}/${GUIDE_PATH}#v${major})"$'\n'
 done
 sections=${sections%$'\n'}
 

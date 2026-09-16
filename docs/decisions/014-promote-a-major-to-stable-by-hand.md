@@ -46,6 +46,19 @@ Failing towards the prompt is deliberate: an early prompt costs a consumer some 
 A consumer stale against an older major while a newer one is settling — pinning `@v1` when `v2` is stable and `v3` was just cut — is sent to `@v2` and told that `v3` exists and is still settling.
 Migration advice never points at a contract that may still move, and a consumer that can see the newer branch on GitHub is not left reading the issue as out of date.
 
+### Each guide section is linked on its own major's branch
+
+The issue's [upgrade guide](../reference/upgrading.md) links are `…/blob/v<N>/docs/reference/upgrading.md#v<N>`, not `…/blob/main/…`.
+
+The section itself would survive either way — it is about a hop between two fixed majors, and older sections are not rewritten.
+What does not survive is everything around it.
+GitHub resolves a rendered file's relative links against the ref it was opened at, so a section read on `main` sends the reader onward to today's runbooks, ADRs and workflow files — a repository that has moved on past the major they are migrating to, and that under a settling major describes behaviour nobody has been prompted onto.
+Read at `v<N>`, the same links hand them the repository as it stood for the version they are moving to.
+
+Per-major rather than one ref for the whole span, because a multi-major migration is several hops and each is made against a different repository.
+A consumer going `v1` → `v3` reads the `v2` section on `v2`, does that work, then reads the `v3` section on `v3`.
+The cost is that a correction made to an older section after its successor was cut does not reach the pinned copy unless it is backported — acceptable, because that section is *about* its own major, so its own branch is the copy that ought to be right.
+
 ### The divergence is surfaced, not remembered
 
 A promotion that is forgotten is worse than a clock that expires: consumers sit on a frozen major and are never told, which is the exact failure ADR-004 exists to prevent.
@@ -86,6 +99,10 @@ A long-lived branch also rots across exactly the multi-week pauses this reposito
 - A consumer's migration prompt arrives only for a contract that has stopped moving, so the prompt is worth acting on when it comes.
 - The major consumers are pointed at is **declared rather than inferred** — no date arithmetic, and no assumption that major numbers are contiguous.
 - The cut stops rewriting the adoption docs: they are bumped by the promotion, so they never advertise a version nobody should be adopting yet.
+- A consumer following the issue reads each hop's documentation as it stood for that major, so docs that have since moved on cannot mislead someone several majors behind.
+- **`main` is freed from carrying a migration-accurate copy of the docs.**
+  While a major is settling, the one consumers are sent to is the major before it, frozen at the cut — so every link a migrating consumer follows resolves on content that has stopped moving.
+  The pull requests that settle the new major can therefore rewrite the runbooks as they go, rather than each having to leave `main` readable by someone mid-upgrade.
 - No new credential or per-consumer configuration — one more line in `release.yml`, read from a public repository.
 
 **Negative / trade-offs:**

@@ -150,7 +150,7 @@ The first two rows are permanent blind spots: a sentence genuinely ending in "et
 That is the intended direction of the trade — see [ADR-015](../decisions/015-semantic-line-break-check.md).
 
 `reflow.py` recognises a sentence end wherever this check does, including one inside markup (`**A bold lead-in.** The rest.`), because it takes the closing characters from the same set this does.
-It stays the more conservative of the two — it may leave a break the check then asks for, never the reverse — so migrating means running the reflow and then clearing whatever the check still reports.
+It stays the more conservative of the two — it may leave a break the check then asks for, never the reverse — so a migration clears most of what the check reports with the reflow, and the remainder by hand.
 See [§ Adopt it only alongside the reflow](../runbooks/adopting-markdown-workflows.md#adopt-it-only-alongside-the-reflow).
 
 ### Suppressing a finding

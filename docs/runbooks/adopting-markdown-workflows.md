@@ -83,12 +83,12 @@ Pass `globs` (default `**/*.md`, and unlike most Markdown tooling it does reach 
 
 ### Adopt it only alongside the reflow
 
-The check is a gate, not a migration.
-Pointing it at prose that has never been reflowed produces a finding per sentence pair — a few hundred in a typical `docs/` tree.
-Run [`reflow.py`](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/scripts/reflow.py) from the `markdown-standards` plugin first — it is render-gated, so it only rewrites what renders identically — then land the caller.
+The check is a gate, not a migration, so it arrives with the reflow that satisfies it rather than apart from it.
+Pointing it at prose that has never been reflowed produces a finding per sentence pair — a few hundred in a typical `docs/` tree — which the reflow then clears, as that check's fix commit.
+Use [`reflow.py`](https://github.com/flungo/claude-plugins/blob/main/plugins/markdown-standards/scripts/reflow.py) from the `markdown-standards` plugin: it is render-gated, so it only rewrites what renders identically.
 Turning `MD013` off in the same change keeps the two rules from pulling in opposite directions.
 
-**Run the check after the reflow, and fix by hand whatever it still reports.**
+**Fix by hand whatever the check still reports after the reflow.**
 `reflow.py` is deliberately conservative — it keeps only what renders identically — so the check, not the script, is what says a repo is done.
 Expect little, and expect no particular shape.
 
@@ -143,25 +143,24 @@ Both files are **repo-specific — regenerate them, don't copy another repo's**:
 > Fabrizio's [`markdown-standards` plugin](https://github.com/flungo/claude-plugins/tree/main/plugins/markdown-standards) drives everything in this section as a single **`/adopt-markdown-ci`** command, bundled with his Markdown conventions — see [§ Optional — automated adoption with Fabrizio's conventions](#optional--automated-adoption-with-fabrizios-conventions) below.
 > The procedure here stands on its own if you would rather not take those opinions.
 
-Introduce the checks **one at a time**, and for each blocking check confirm it goes red before fixing what it finds — a check you have never seen fail is a check you have not verified.
-The external sweep is the exception, for the reason in [§ The external sweep does not need a manufactured failure](#the-external-sweep-does-not-need-a-manufactured-failure) below.
+Introduce the checks **one at a time**, and let each one report before you fix anything it covers — findings you pre-empted are findings you never saw.
+A first run that comes back green is a fine outcome, and nothing needs manufacturing to produce one that isn't: a repo that already follows a rule has nothing to fix, and these workflows are pinned and shared, so their behaviour is verified once in this repository rather than re-proven in each adopter (see [§ Verifying the external sweep](#verifying-the-external-sweep) for the same argument made where it is least obvious).
 Expect a first-time markdownlint run to produce many findings.
 
 How that work is then split into commits or PRs is the adopting repo's business; the plugin encodes one opinionated discipline for it.
 
-Verify each check as you add it:
+Add the checks in this order:
 
 1. **Internal links + anchors** (`markdown-links.yml` internal job) — offline and blocking, so it must be green to merge.
-   Confirm it goes red on both a genuinely broken relative link and a bad `#anchor`.
 2. **markdownlint** (`markdown-lint.yml` + `.markdownlint-cli2.jsonc`) — style and structure only; it does not check cross-file links.
 3. **External URLs** (`markdown-links.yml` external job + `.lycheeignore`) — dispatch it **in GitHub via `workflow_dispatch`**, not from a sandbox with limited egress, and only once `LYCHEE_GITHUB_TOKEN` exists (see the pitfalls below).
    Confirm the run reaches the external job and reports on this repo's own URLs, then add genuine 403/404-when-unauthenticated offenders to `.lycheeignore` and re-dispatch until green.
    One clean run is all this step needs.
-4. **Semantic line breaks** (`markdown-sembr.yml`), only if the repo is taking the convention — last, and after the reflow has landed, so its first run is over prose that is already in shape.
-   Confirm it goes red by putting two sentences on one line.
+4. **Semantic line breaks** (`markdown-sembr.yml`), only if the repo is taking the convention — the caller first, then the reflow as its fix commit, the same way round as the others.
+   A repo that has never been reflowed will show a finding per sentence pair on that first run, and the reflow commit resolves them.
    Verify the reflow itself by rendering, not by the check: the check is blind to a break that changed the output, which is exactly what `reflow.py`'s render gate is for.
 
-### The external sweep does not need a manufactured failure
+### Verifying the external sweep
 
 Breaking a link on purpose to watch the sweep open an issue is **not** part of adopting the workflows in a new repo.
 The create/update/close lifecycle — one issue opened, updated in place on the next dispatch rather than duplicated, and closed once a later run comes back clean — is behaviour of the pinned reusable workflow, identical in every caller, so it is verified once per major version rather than in each adopting repo.

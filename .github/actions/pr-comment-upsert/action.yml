@@ -1,0 +1,68 @@
+# Keeps exactly one pull request comment in sync with a condition, found by a
+# hidden marker in its body: post it, update it in place, or remove it once the
+# condition clears.
+#
+# The sibling of `issue-upsert`: same pattern, different resource, and
+# deliberately two actions rather than one with a `resource:` switch — see
+# ADR-018. ADR-009 covers why a reusable workflow reaches either of them
+# through a checkout of this repository at the workflow file's own commit.
+#
+# The action never builds the comment: the caller hands it a body, which for
+# `terraform.yml` is a plan summary it assembles from the plan itself.
+name: PR comment upsert
+description: >-
+  Create, update or remove the single pull request comment carrying a hidden
+  marker, so a workflow reporting on a pull request keeps one comment current
+  instead of posting another on every push.
+inputs:
+  marker:
+    description: >-
+      Hidden HTML comment identifying the comment, e.g. `<!-- terraform-plan
+      -->`. It is prepended to the body when the body does not already contain
+      it, so the comment this run writes is the one the next run finds.
+    required: true
+  state:
+    description: >-
+      `present` (post or update the comment) or `absent` (the condition has
+      cleared — delete the comment if one is there). A comment carries no state
+      of its own, so `absent` removes it rather than closing anything.
+    default: present
+  body:
+    description: Comment body, with or without the marker. Required when `state` is `present`.
+    default: ''
+  issue-number:
+    description: >-
+      The pull request to comment on. Defaults to the one the run was triggered
+      by; a workflow not running on a pull request must name it.
+    default: ''
+  github-token:
+    description: >-
+      Token used for the comment API calls; the caller must grant it
+      `pull-requests: write`.
+    default: ${{ github.token }}
+outputs:
+  comment-id:
+    description: The comment created, updated or removed; empty when there was nothing to do.
+    value: ${{ steps.upsert.outputs.comment-id }}
+  outcome:
+    description: What the action did — `created`, `updated`, `deleted` or `none`.
+    value: ${{ steps.upsert.outputs.outcome }}
+runs:
+  using: composite
+  steps:
+    - id: upsert
+      uses: actions/github-script@v9
+      env:
+        # `github.action_path` rather than $GITHUB_ACTION_PATH: inside the
+        # nested github-script step that variable names *its* directory, not
+        # this action's.
+        ACTION_PATH: ${{ github.action_path }}
+        MARKER: ${{ inputs.marker }}
+        STATE: ${{ inputs.state }}
+        BODY: ${{ inputs.body }}
+        ISSUE_NUMBER: ${{ inputs.issue-number }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const upsert = require(`${process.env.ACTION_PATH}/upsert.js`);
+          await upsert({ github, core, context });

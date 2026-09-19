@@ -126,6 +126,103 @@ jobs:
           printf '%s' "$BODY" | grep -qE '.v4. has also been published'
           absent "$base/v4/"
 
+  issue-upsert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The smoke step below lists this repo's open issues; it writes nothing.
+      issues: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Colocated tests (test.sh)
+        run: |
+          set -eu
+          # The rejection paths print ::error:: on purpose; suspend
+          # workflow-command processing so a passing run doesn't collect
+          # failure annotations.
+          resume_token="action-tests-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "::stop-commands::$resume_token"
+          if .github/actions/issue-upsert/test.sh; then
+            echo "::$resume_token::"
+          else
+            echo "::$resume_token::"
+            echo "::error::issue-upsert test.sh failed"
+            exit 1
+          fi
+
+      # Every other path this action takes writes an issue into the repository
+      # it runs in — which here is this one — so the smoke step takes the one
+      # that does not: `absent` against a marker and label nothing carries, so
+      # the action lists, finds nothing and stops. Create, update and close are
+      # covered against a fake client in test.sh.
+      - name: Wiring smoke test
+        id: smoke
+        uses: ./.github/actions/issue-upsert
+        with:
+          marker: '<!-- issue-upsert-self-test -->'
+          label: issue-upsert-self-test
+          state: absent
+          close-comment: Never posted — nothing carries the self-test marker.
+
+      - name: Assert the wired outputs
+        env:
+          OUTCOME: ${{ steps.smoke.outputs.outcome }}
+          NUMBER: ${{ steps.smoke.outputs.issue-number }}
+        run: |
+          set -eu
+          [ "$OUTCOME" = "none" ] || { echo "::error::expected outcome=none, got '$OUTCOME'"; exit 1; }
+          [ -z "$NUMBER" ] || { echo "::error::expected no issue number, got '$NUMBER'"; exit 1; }
+
+  pr-comment-upsert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The smoke step below lists this pull request's comments; it writes
+      # nothing.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Colocated tests (test.sh)
+        run: |
+          set -eu
+          # The rejection paths print ::error:: on purpose; suspend
+          # workflow-command processing so a passing run doesn't collect
+          # failure annotations.
+          resume_token="action-tests-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "::stop-commands::$resume_token"
+          if .github/actions/pr-comment-upsert/test.sh; then
+            echo "::$resume_token::"
+          else
+            echo "::$resume_token::"
+            echo "::error::pr-comment-upsert test.sh failed"
+            exit 1
+          fi
+
+      # As with issue-upsert: every other path writes onto a pull request —
+      # here, the one under test — so the smoke step takes the one that does
+      # not. It needs a pull request to look at, hence the event gate; the
+      # tests above run on both events.
+      - name: Wiring smoke test
+        id: smoke
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/pr-comment-upsert
+        with:
+          marker: '<!-- pr-comment-upsert-self-test -->'
+          state: absent
+          issue-number: ${{ github.event.pull_request.number }}
+
+      - name: Assert the wired outputs
+        if: github.event_name == 'pull_request'
+        env:
+          OUTCOME: ${{ steps.smoke.outputs.outcome }}
+          COMMENT_ID: ${{ steps.smoke.outputs.comment-id }}
+        run: |
+          set -eu
+          [ "$OUTCOME" = "none" ] || { echo "::error::expected outcome=none, got '$OUTCOME'"; exit 1; }
+          [ -z "$COMMENT_ID" ] || { echo "::error::expected no comment id, got '$COMMENT_ID'"; exit 1; }
+
   check-semantic-line-breaks:
     runs-on: ubuntu-latest
     steps:

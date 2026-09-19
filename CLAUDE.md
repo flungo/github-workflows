@@ -12,6 +12,7 @@ Three families:
 ## Repo layout
 
 - `.github/workflows/*.yml` — the reusable workflows and this repo's own self-CI (`ci.yml`, `action-tests.yml`); `.github/actions/` — shared composite actions any of the reusable workflows can fetch at their own commit via `job.workflow_sha` ([ADR-009](docs/decisions/009-composite-action-via-workflow-identity-checkout.md)) — the Terraform family was the first consumer, `markdown-sembr.yml`, `flungo-workflows.yml` and `markdown-links.yml` followed; the pattern is not scoped to any of them.
+  `issue-upsert` and `pr-comment-upsert` are the cross-family pair: every workflow that keeps a single marked issue or pull request comment in sync with a condition places it through one of them, and [ADR-018](docs/decisions/018-one-upsert-action-per-resource.md) records why that is two actions rather than one with a `resource:` switch.
 - `docs/` follows the [Divio/Diátaxis](https://diataxis.fr/) split, matching the sibling repos — each subdirectory has a `README.md` index:
   - `reference/` — information-oriented lookup: `terraform-workflow.md` (the Terraform CI standard), `terraform-provider-workflow.md` (the provider CI standard) and `markdown-validation.md` (the Markdown workflows, for any repo, including what the semantic-line-break check deliberately does not flag).
   - `runbooks/` — repeatable how-to guides: `adopting-terraform-workflows.md`, `adopting-terraform-provider-workflows.md`, `adopting-markdown-workflows.md`, `adopting-flungo-workflows.md`, `releasing.md`.

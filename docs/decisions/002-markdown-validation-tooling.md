@@ -1,7 +1,7 @@
 # ADR-002: Markdown validation tooling
 
-- Date: 2026-07-21
-- Status: Accepted
+- **Date:** 2026-07-21
+- **Status:** Accepted
 
 ## Context
 
@@ -38,14 +38,14 @@ Because lychee already covers internal links well and consolidates all link chec
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - One tool (lychee) covers internal links, cross-file anchors, and external URLs; one tool (markdownlint-cli2) covers style.
   Two well-understood dependencies, no overlap.
 - The offline internal check is deterministic and never flaky (no network), so it is safe to make PR-blocking.
 - The online external check is isolated to a scheduled job that reports via an issue, so a third-party outage can never block a merge.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - lychee is existence-only: it cannot flag an *ambiguous* base-slug link (a duplicate heading silently redirecting a `#slug` link).
   That gap is closed by convention — give any cross-referenced heading a unique name — with an optional custom rule left unbuilt.

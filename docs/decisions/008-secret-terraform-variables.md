@@ -1,7 +1,7 @@
 # ADR-008: Inject secret Terraform variables via a masked env-var explosion
 
-- Date: 2026-07-29
-- Status: Accepted
+- **Date:** 2026-07-29
+- **Status:** Accepted
 
 ## Context
 
@@ -37,13 +37,13 @@ Masking covers the run *logs* only; the plan text also lands in the `terraform-p
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - A config can consume any secret value beyond the provider token, with the workflow naming no specific variable — additive and backward-compatible, so it rides `@v1` with no major bump.
 - Masking at the point of handling, no on-disk secret, and an escape-safe caller give strong secret hygiene that does not depend on each consumer getting `sensitive` right.
 - The secret/non-secret split makes it structurally impossible to route a secret through a non-masked path.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - The export step is duplicated in both workflows.
   Extracting it to a shared composite action was deferred: a reusable workflow must reference it by full path (`flungo/github-workflows/.github/actions/…@v1`, since a local `./` action resolves against the *caller's* checkout), which creates a pre-merge testing chicken-and-egg.

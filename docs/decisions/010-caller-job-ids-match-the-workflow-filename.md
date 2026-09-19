@@ -1,7 +1,7 @@
 # ADR-010: A caller's job ID matches the reusable workflow's filename
 
-- Date: 2026-08-02
-- Status: Accepted
+- **Date:** 2026-08-02
+- **Status:** Accepted
 
 ## Context
 
@@ -99,7 +99,7 @@ They are renamed before `terraform-github` requires the new strings.
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - The context a workflow reports is now derivable from its filename, which is what makes it safe for another repository to hardcode.
 - A caller job ID can no longer collide with an adopter's own jobs, so adopting a second family — or having a `lint` of one's own — needs no renaming.
@@ -107,7 +107,7 @@ They are renamed before `terraform-github` requires the new strings.
   It remains for its real case: a repository that genuinely cannot *run* a check.
 - This repository's own `ci.yml` becomes conformant rather than an exception, so the standard is dogfooded rather than merely published.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - **Job IDs get longer**, and in a single-purpose workflow file the family prefix is redundant with the filename around it.
   Accepted: the ID is a repository-wide name, so it has to be unique in a scope wider than the file it sits in.

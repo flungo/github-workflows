@@ -1,7 +1,7 @@
 # ADR-013: A per-major upgrade guide, scoped to breaking changes only
 
-- Date: 2026-08-02
-- Status: Accepted
+- **Date:** 2026-08-02
+- **Status:** Accepted
 
 ## Context
 
@@ -103,14 +103,14 @@ The cut then promotes the section by removing that marker, rather than writing i
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - A consumer told it is on a frozen major now has somewhere to go, linked from the notification itself.
 - The migration is written by whoever made the change, while they still hold the context, rather than reconstructed later from commits.
 - Scoping to breaking changes keeps the file short enough to stay accurate — a file with one section per major grows at the rate majors are cut, which is rare by design.
 - Ordering constraints between this repository and `terraform-github` get written down somewhere a consumer will actually look, instead of living only in the pull requests that discovered them.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - **One more step when cutting a major**, and one that is easy to skip because nothing enforces it.
   Mitigated only by its being in the runbook next to the `MAJOR_BRANCH` bump, which is the step nobody forgets.

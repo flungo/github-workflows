@@ -1,7 +1,7 @@
 # ADR-014: A major is published by the cut and promoted to stable by hand
 
-Date: 2026-09-16
-Status: Accepted
+- **Date:** 2026-09-16
+- **Status:** Accepted
 
 ## Context
 
@@ -111,7 +111,7 @@ A long-lived branch also rots across exactly the multi-week pauses this reposito
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - A major can be cut incrementally and corrected in place while it is being adopted, so neither the mega-pull-request nor the punitive extra major is needed to get one right.
 - A consumer's migration prompt arrives only for a contract that has stopped moving, so the prompt is worth acting on when it comes.
@@ -123,7 +123,7 @@ A long-lived branch also rots across exactly the multi-week pauses this reposito
   The pull requests that settle the new major can therefore rewrite the runbooks as they go, rather than each having to leave `main` readable by someone mid-upgrade.
 - No new credential or per-consumer configuration — one more line in `release.yml`, read from a public repository.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - **The old major freezes at the cut, not at the promotion.**
   `release.yml` stops advancing it the moment `MAJOR_BRANCH` changes, so a consumer stops receiving fixes before anything tells it so, for as long as settling lasts.

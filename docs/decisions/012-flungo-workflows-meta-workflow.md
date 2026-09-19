@@ -1,7 +1,7 @@
 # ADR-012: `version-check.yml` becomes `flungo-workflows.yml`, a workflow every adopter runs
 
-- Date: 2026-08-02
-- Status: Accepted
+- **Date:** 2026-08-02
+- **Status:** Accepted
 
 ## Context
 
@@ -70,14 +70,14 @@ Doing this in a different major from ADR-011 would mean two migrations for the s
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - The naming rules produce a sensible context here rather than the degenerate `version-check / version-check`.
 - A caller job ID that identifies what it belongs to, in the repository-wide namespace ADR-010 is about.
 - There is now a home for the next "every adopter should run this" job, so adding one is not another naming decision.
 - Consumers migrate once for both this and ADR-011.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - **A workflow named after a repository** is unconventional, and will read oddly to anyone who meets it before reading this.
   Mitigated by the runbook, and accepted because it is accurate.

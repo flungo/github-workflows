@@ -1,7 +1,7 @@
 # ADR-009: Reference shared composite actions via a workflow-identity checkout
 
-- Date: 2026-07-30
-- Status: Accepted
+- **Date:** 2026-07-30
+- **Status:** Accepted
 
 ## Context
 
@@ -42,14 +42,14 @@ One tooling note: actionlint's `job` context model does not yet include the work
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - The secret-handling shell exists once.
   `terraform.yml` and `terraform-drift.yml` cannot drift apart, and a fix (or a new variable path) lands in one place.
 - No ref skew is possible: workflow and action always come from the same commit, on `@v1` today, on a frozen major after a future bump, and on any feature branch under test — which clears ADR-008's deferral rather than working around it.
 - The reference names no version, so a major bump needs no edit here.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - Every Terraform job performs an extra checkout of this repo — shallow and sparse (`.github/actions` only), a few seconds — and a `.github-workflows/` directory appears in the job workspace.
   It sits outside the caller's module path and Terraform does not read it.

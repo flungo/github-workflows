@@ -1,7 +1,7 @@
 # ADR-011: A reusable job's ID is its check name
 
-- Date: 2026-08-02
-- Status: Accepted
+- **Date:** 2026-08-02
+- **Status:** Accepted
 
 ## Context
 
@@ -141,7 +141,7 @@ And the loss is partly illusory: the *full* context is what the UI shows, and `m
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - Every check context in the fleet becomes derivable from the workflow filename plus its job IDs — no check run needed to discover a string, and nothing to record in a doc that can go stale.
 - Contexts become lowercase and punctuation-free, so they are safe to type, quote in HCL, and compare.
@@ -149,7 +149,7 @@ And the loss is partly illusory: the *full* context is what the UI shows, and `m
 - `terraform / terraform` is unaffected, so the only contexts currently required anywhere in the fleet survive the major cut.
 - `releasing.md`'s definition of breaking gains a category it was silently missing.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - **Every consumer must migrate `@v1` → `@v2`**, which is the cost of any major and is exactly what the version-check workflow exists to surface.
 - **Prose check names are lost.**

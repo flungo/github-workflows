@@ -1,7 +1,7 @@
 # ADR-006: A reusable CI family for the Terraform providers
 
-- Date: 2026-07-26
-- Status: Accepted
+- **Date:** 2026-07-26
+- **Status:** Accepted
 
 ## Context
 
@@ -29,13 +29,13 @@ Running `tfplugindocs` here rather than delegating to a per-consumer `make gener
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - No copy-paste drift for the boilerplate — a fix here reaches every provider on its next run, and `v1` advances automatically ([ADR-003](003-version-via-moving-v1-branch.md)).
 - A new provider adopts CI with three thin callers plus its own `testacc` job.
 - The generalisation is limited to what is genuinely standard scaffold; the provider-specific harness is not forced into a shared shape from one example.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - Acceptance testing is not centralised, so each provider still authors that job (by design — revisit if a second provider shows a genuinely shared shape).
 - The docs and release workflows assume the standard scaffold (committed `docs/`, `tfplugindocs` as a `go.mod` tool dependency, a `.goreleaser.yml`); a provider without them opts out (`check-docs: false`, or simply not calling the workflow).

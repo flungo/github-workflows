@@ -1,7 +1,7 @@
 # ADR-015: Enforce the semantic line break MUST rule in its own workflow
 
-- Date: 2026-08-02
-- Status: Accepted
+- **Date:** 2026-08-02
+- **Status:** Accepted
 
 ## Context
 
@@ -52,7 +52,7 @@ It runs on the runner's system Python with no setup step.
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - The `MD013`-off half of the pairing stops being enforced by memory.
   A repo that reflows stays reflowed.
@@ -63,7 +63,7 @@ It runs on the runner's system Python with no setup step.
   Semantic line breaks are the standard for the repos `flungo` owns, so every one of them takes this caller and the context ends up required fleet-wide — while an outside repo can still take `markdown-lint.yml` and `markdown-links.yml` without inheriting a prose style.
   Requiring it everywhere we own is therefore consistent with this ADR rather than a departure from it.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - One more caller workflow for a repo that wants everything, and a third Markdown check in the pull request list.
 - The checker is a hand-rolled Markdown block scanner, so an exotic construct could be misclassified.

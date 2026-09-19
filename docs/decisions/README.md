@@ -36,8 +36,8 @@ Superseded decisions keep their file and get a note at the top pointing to the n
 ```markdown
 # ADR-NNN: Title
 
-- Date: YYYY-MM-DD
-- Status: Accepted
+- **Date:** YYYY-MM-DD
+- **Status:** Proposed | Accepted | Superseded by ADR-MMM | Deprecated
 
 ## Context
 
@@ -49,9 +49,13 @@ What was decided?
 
 ## Consequences
 
-**Positive:**
+What becomes easier or harder as a result.
+
+### Positive
+
 - ...
 
-**Negative / trade-offs:**
+### Negative — trade-offs
+
 - ...
 ```

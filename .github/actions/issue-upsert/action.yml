@@ -1,0 +1,90 @@
+# Keeps exactly one open issue in sync with a condition, found by a hidden
+# marker in its body: create it, update it in place, or comment-and-close it
+# once the condition clears.
+#
+# Shared by every workflow here that keeps a tracking issue: the version
+# check, the external link sweep and drift remediation. ADR-009 covers how a
+# reusable workflow reaches it — a checkout of this repository at the workflow
+# file's own commit. `pr-comment-upsert` is the sibling that does this to a
+# pull request comment; ADR-018 records why the pattern is two actions rather
+# than one.
+#
+# The action never decides *whether* the condition holds: the caller says so
+# with `state`, having built the title and body it wants placed.
+name: Issue upsert
+description: >-
+  Create, update or close the single open issue carrying a hidden marker, so a
+  workflow reporting a condition keeps one issue in sync with it instead of
+  stacking duplicates.
+inputs:
+  marker:
+    description: >-
+      Hidden HTML comment identifying the issue, e.g. `<!-- drift -->`. It is
+      prepended to the body when the body does not already contain it, so the
+      issue this run writes is the one the next run finds.
+    required: true
+  state:
+    description: >-
+      `present` (the condition holds — create or update the issue) or `absent`
+      (it has cleared — close the issue if one is open).
+    default: present
+  title:
+    description: Issue title. Required when `state` is `present`; set on create and on update.
+    default: ''
+  body:
+    description: Issue body, with or without the marker. Required when `state` is `present`.
+    default: ''
+  label:
+    description: >-
+      Label applied on create and used to narrow the search for the existing
+      issue. Optional: without one, every open issue is searched.
+    default: ''
+  label-color:
+    description: >-
+      Six-digit hex colour, no `#`. Set it to have the label created with that
+      colour and description when it does not exist yet; left empty, an unknown
+      label is still created by GitHub, in its default grey.
+    default: ''
+  label-description:
+    description: Description for the label, used only alongside `label-color`.
+    default: ''
+  close-comment:
+    description: >-
+      Comment posted before closing on the `absent` path, saying why. Empty
+      closes without commenting.
+    default: ''
+  github-token:
+    description: >-
+      Token used for the issue API calls; the caller must grant it
+      `issues: write`.
+    default: ${{ github.token }}
+outputs:
+  issue-number:
+    description: The issue created, updated or closed; empty when there was nothing to do.
+    value: ${{ steps.upsert.outputs.issue-number }}
+  outcome:
+    description: What the action did — `created`, `updated`, `closed` or `none`.
+    value: ${{ steps.upsert.outputs.outcome }}
+runs:
+  using: composite
+  steps:
+    - id: upsert
+      uses: actions/github-script@v9
+      env:
+        # `github.action_path` rather than $GITHUB_ACTION_PATH: inside the
+        # nested github-script step that variable names *its* directory, not
+        # this action's.
+        ACTION_PATH: ${{ github.action_path }}
+        MARKER: ${{ inputs.marker }}
+        STATE: ${{ inputs.state }}
+        TITLE: ${{ inputs.title }}
+        BODY: ${{ inputs.body }}
+        LABEL: ${{ inputs.label }}
+        LABEL_COLOR: ${{ inputs.label-color }}
+        LABEL_DESCRIPTION: ${{ inputs.label-description }}
+        CLOSE_COMMENT: ${{ inputs.close-comment }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const upsert = require(`${process.env.ACTION_PATH}/upsert.js`);
+          await upsert({ github, core, context });

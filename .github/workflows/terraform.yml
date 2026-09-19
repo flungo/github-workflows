@@ -164,18 +164,22 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
-      - name: Post plan to PR
+      # Building the comment and placing it are two steps: the body comes from
+      # this run's plan and the outcomes of the steps above, while keeping one
+      # comment current across a pull request's pushes is the shared
+      # pr-comment-upsert action's job (ADR-018). The marker is the action's to
+      # write — it prepends it — so the body below does not carry one.
+      - name: Build the plan comment
+        id: plan_comment
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v9
         env:
           WORKDIR: ${{ inputs.working-directory }}
-          MARKER: ${{ inputs.plan-comment-marker }}
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
             const wd = process.env.WORKDIR || '.';
-            const marker = process.env.MARKER;
 
             // Parse the JSONL plan output to find the change_summary message.
             let summary = '';
@@ -198,11 +202,13 @@ jobs:
 
             const txtPath = path.join(wd, 'plan.txt');
             const planText = fs.existsSync(txtPath) ? fs.readFileSync(txtPath, 'utf8') : '';
-            const planDisplay = planText.length > 65000
-              ? planText.substring(0, 65000) + '\n...(truncated, see job logs for full output)'
+            // 60 000, the same limit terraform-drift.yml's issue body uses: a
+            // comment is capped at 65 536 characters and the table, summary and
+            // details wrapper around the plan cost a few hundred more.
+            const planDisplay = planText.length > 60000
+              ? planText.substring(0, 60000) + '\n...(truncated, see job logs for full output)'
               : planText;
             const body = [
-              marker,
               `| Format | Validate | Plan |`,
               `|---|---|---|`,
               `| \`${{ steps.fmt.outcome }}\` | \`${{ steps.validate.outcome }}\` | \`${{ steps.plan.outcome }}\` |`,
@@ -216,27 +222,17 @@ jobs:
               '```',
               '</details>',
             ].join('\n');
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const existing = comments.data.find(c => c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+            core.setOutput('body', body);
+
+      # The action finds the marked comment across every page of the thread,
+      # so a pull request carries one plan comment describing its current head,
+      # however long the discussion on it has grown.
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: ./.github-workflows/.github/actions/pr-comment-upsert
+        with:
+          marker: ${{ inputs.plan-comment-marker }}
+          body: ${{ steps.plan_comment.outputs.body }}
 
       - name: Fail on plan error
         if: steps.plan.outcome == 'failure'

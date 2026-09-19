@@ -55,46 +55,57 @@ jobs:
           # and that export clobbers any env we set — so an env-var token
           # silently loses to the default and can't reach other private repos.
           token: ${{ secrets.LYCHEE_GITHUB_TOKEN }}
-      - name: Upsert / close the broken-links issue
-        uses: actions/github-script@v9
-        env:
-          LYCHEE_EXIT: ${{ steps.lychee.outputs.exit_code }}
+      # After the sweep, never before it: the sparse checkout carries this
+      # repo's own Markdown fixtures, which lychee would otherwise scan as if
+      # they were the caller's.
+      #
+      # This repo's composite actions can't be referenced by a local `./` path
+      # from a reusable workflow (it would resolve against the caller's
+      # checkout), so fetch them at the exact commit this workflow file was
+      # taken from: the action always matches the ref the caller pinned — @v2,
+      # or a feature branch under test. See ADR-009.
+      - name: Fetch workflow actions
+        uses: actions/checkout@v7
         with:
-          # Idempotent: at most one open issue labelled `markdown-links`.
-          # Broken links -> update it if present, else create it. Clean run ->
-          # close it if present.
-          script: |
-            const fs = require('fs');
-            const { owner, repo } = context.repo;
-            const label = 'markdown-links';
-            const marker = '<!-- markdown-links-report -->';
-            const title = 'Broken external links (daily Markdown sweep)';
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .github-workflows
+          sparse-checkout: .github/actions
+          persist-credentials: false
 
-            const { data: openIssues } = await github.rest.issues.listForRepo({
-              owner, repo, state: 'open', labels: label, per_page: 100,
-            });
-            const existing = openIssues.find(i => (i.body || '').includes(marker));
+      - name: Build the broken-links report
+        id: report
+        if: steps.lychee.outputs.exit_code != '0'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eu
+          report=$(cat ./lychee/out.md 2>/dev/null || true)
+          [ -n "$report" ] || report='_See the workflow run for details._'
+          # The marker belongs to the upsert step, which prepends it: one place
+          # knows the string the next run searches for.
+          delimiter=MARKDOWN_LINKS_REPORT_BODY
+          {
+            printf 'body<<%s\n' "$delimiter"
+            cat <<EOF
+          Broken external links found by the daily sweep ([run]($RUN_URL)).
+          Fix the link or its target; whitelist a URL in \`.lycheeignore\` only if it legitimately 403/404s while unauthenticated.
 
-            if (process.env.LYCHEE_EXIT !== '0') {
-              let report = '';
-              try { report = fs.readFileSync('./lychee/out.md', 'utf8').trim(); } catch (e) {}
-              const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
-              const body = [
-                marker,
-                `Broken external links found by the daily sweep ([run](${runUrl})).`,
-                'Fix the link or its target; whitelist a URL in `.lycheeignore` only if it legitimately 403/404s while unauthenticated.',
-                '',
-                report || '_See the workflow run for details._',
-              ].join('\n');
-              if (existing) {
-                await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
-              } else {
-                await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
-              }
-            } else if (existing) {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: existing.number,
-                body: 'All external links resolve — closed by the daily sweep.',
-              });
-              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
-            }
+          $report
+          EOF
+            printf '%s\n' "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      # Idempotent, and one issue however many open issues the caller has: the
+      # action finds the marked issue across every page, updates it in place
+      # while links are broken, and comments-and-closes it once they resolve.
+      # The marker it is given is the one it writes into the body.
+      - name: Upsert / close the broken-links issue
+        uses: ./.github-workflows/.github/actions/issue-upsert
+        with:
+          marker: '<!-- markdown-links-report -->'
+          state: ${{ steps.lychee.outputs.exit_code != '0' && 'present' || 'absent' }}
+          title: Broken external links (daily Markdown sweep)
+          body: ${{ steps.report.outputs.body }}
+          label: markdown-links
+          close-comment: All external links resolve — closed by the daily sweep.

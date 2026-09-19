@@ -19,9 +19,10 @@
 # The issue names the upgrade guide sections between the pinned major and the
 # current one, in order, so the notice that a consumer is behind also says how
 # to catch up (ADR-013). That body is built by the version-check-issue composite
-# action rather than inline here, so the section span is unit-tested — see
-# ADR-009 for why the action comes from a checkout of this repo at the
-# workflow file's own commit.
+# action rather than inline here, so the section span is unit-tested, and placed
+# by the issue-upsert action, which is what keeps it to exactly one issue — see
+# ADR-009 for why both come from a checkout of this repo at the workflow file's
+# own commit.
 #
 # No credentials: it reads this (public) repo's v* branches with the caller's
 # own repo-scoped GITHUB_TOKEN (public repo, so plain read works) and writes the
@@ -148,46 +149,18 @@ jobs:
           target: ${{ steps.survey.outputs.target }}
           settling: ${{ steps.survey.outputs.settling }}
 
+      # The marker comes from the action that embedded it, never a second copy
+      # of the literal — one place knows what to search for. An empty title is
+      # how version-check-issue says nothing is stale, which is the signal to
+      # close any issue a previous run opened.
       - name: Upsert or close the tracking issue
-        uses: actions/github-script@v9
-        env:
-          STALE: ${{ steps.survey.outputs.stale }}
-          TARGET: ${{ steps.survey.outputs.target }}
-          MARKER: ${{ steps.issue.outputs.marker }}
-          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
-          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+        uses: ./.github-workflows/.github/actions/issue-upsert
         with:
-          script: |
-            const { owner, repo } = context.repo;
-            const label = 'github-workflows-version';
-            // From the action, not a second copy of the literal: it embeds the
-            // marker, so it is the only thing that knows what to search for.
-            const marker = process.env.MARKER;
-            const stale = JSON.parse(process.env.STALE || '[]');
-            const target = process.env.TARGET;
-
-            const open = await github.paginate(github.rest.issues.listForRepo, {
-              owner, repo, state: 'open', labels: label, per_page: 100,
-            });
-            const existing = open.find(i => (i.body || '').includes(marker));
-
-            if (stale.length > 0) {
-              const title = process.env.ISSUE_TITLE;
-              const body = process.env.ISSUE_BODY;
-              if (existing) {
-                await github.rest.issues.update({ owner, repo, issue_number: existing.number, title, body });
-                core.notice(`Updated migration issue #${existing.number}.`);
-              } else {
-                const { data } = await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
-                core.notice(`Opened migration issue #${data.number}.`);
-              }
-            } else if (existing) {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: existing.number,
-                body: `No \`flungo/github-workflows\` ref is on a frozen major (the current stable major is v${target}) — closing.`,
-              });
-              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
-              core.info(`Closed migration issue #${existing.number}.`);
-            } else {
-              core.info(`Up to date: no pin is behind the stable major (v${target}).`);
-            }
+          marker: ${{ steps.issue.outputs.marker }}
+          state: ${{ steps.issue.outputs.title != '' && 'present' || 'absent' }}
+          title: ${{ steps.issue.outputs.title }}
+          body: ${{ steps.issue.outputs.body }}
+          label: github-workflows-version
+          close-comment: >-
+            No `flungo/github-workflows` ref is on a frozen major (the current
+            stable major is v${{ steps.survey.outputs.target }}) — closing.

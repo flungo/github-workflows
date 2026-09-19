@@ -154,125 +154,100 @@ jobs:
         working-directory: ${{ inputs.working-directory }}
         run: terraform apply -auto-approve -no-color tfplan
 
-      - name: Open drift issue
-        if: steps.plan.outputs.exitcode == '2' && steps.plan.outputs.has_destroys != 'true' && steps.apply.outcome == 'success'
-        uses: actions/github-script@v9
+      # One step builds the issue for either outcome: they differ in their
+      # marker, their title and their opening sentence, and in nothing else.
+      # The markers are two because the conditions are — a destroy plan
+      # awaiting a human must not be overwritten by a later run that
+      # remediated something else.
+      - name: Build the drift issue
+        id: drift-issue
+        if: steps.plan.outputs.exitcode == '2' && (steps.plan.outputs.has_destroys == 'true' || steps.apply.outcome == 'success')
         env:
           WORKDIR: ${{ inputs.working-directory }}
+          HAS_DESTROYS: ${{ steps.plan.outputs.has_destroys }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eu
+          plan_file="${WORKDIR:-.}/plan.txt"
+
+          # An issue body is capped at 65 536 characters and the wrapper below
+          # costs a few hundred; 60 000 leaves room and matches the limit
+          # terraform.yml's plan comment uses. iconv drops whatever partial
+          # character the byte-wise cut left behind, so the body stays valid
+          # UTF-8 for the API.
+          limit=60000
+          if [ "$(wc -c <"$plan_file")" -gt "$limit" ]; then
+            plan="$(head -c "$limit" "$plan_file" | iconv -f UTF-8 -t UTF-8 -c)
+          ...(truncated — see job logs for full output)"
+          else
+            plan="$(cat "$plan_file")"
+          fi
+
+          if [ "$HAS_DESTROYS" = "true" ]; then
+            marker='<!-- terraform-drift-review -->'
+            title="Terraform drift requires manual review (destroys detected) — $(date -u +%F)"
+            opening='Drift was detected but **not automatically applied** because the plan contains resource destructions.
+          Manual review and apply is required.'
+          else
+            marker='<!-- terraform-drift -->'
+            title="Terraform drift detected and remediated — $(date -u +%F)"
+            opening='Drift was detected and remediated by the daily drift-remediation workflow.'
+          fi
+
+          body="$(cat <<EOF
+          $opening
+
+          **Run:** $RUN_URL
+
+          <details><summary>Plan output</summary>
+
+          \`\`\`
+          $plan
+          \`\`\`
+          </details>
+          EOF
+          )"
+
+          delimiter=TERRAFORM_DRIFT_ISSUE
+          {
+            printf 'marker=%s\n' "$marker"
+            printf 'title=%s\n' "$title"
+            printf 'body<<%s\n%s\n%s\n' "$delimiter" "$body" "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      # Skipped steps leave their outputs empty, so this runs exactly when the
+      # step above did. The action keeps one issue per marker in sync rather
+      # than opening another every day the same drift is found.
+      - name: Open or update the drift issue
+        if: steps.drift-issue.outputs.title != ''
+        uses: ./.github-workflows/.github/actions/issue-upsert
         with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            const plan = fs.readFileSync(path.join(process.env.WORKDIR || '.', 'plan.txt'), 'utf8');
-            const truncated = plan.length > 60000
-              ? plan.substring(0, 60000) + '\n...(truncated — see job logs for full output)'
-              : plan;
+          marker: ${{ steps.drift-issue.outputs.marker }}
+          title: ${{ steps.drift-issue.outputs.title }}
+          body: ${{ steps.drift-issue.outputs.body }}
+          label: drift
+          label-color: e11d48
+          label-description: Terraform drift was detected and remediated
 
-            const label = 'drift';
-            try {
-              await github.rest.issues.getLabel({
-                owner: context.repo.owner, repo: context.repo.repo, name: label,
-              });
-            } catch {
-              await github.rest.issues.createLabel({
-                owner: context.repo.owner, repo: context.repo.repo,
-                name: label, color: 'e11d48',
-                description: 'Terraform drift was detected and remediated',
-              });
-            }
-
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const date = new Date().toISOString().slice(0, 10);
-            const body = [
-              `Drift was detected and remediated by the daily drift-remediation workflow.`,
-              ``,
-              `**Run:** ${runUrl}`,
-              ``,
-              `<details><summary>Plan output</summary>`,
-              ``,
-              `\`\`\``,
-              truncated,
-              `\`\`\``,
-              `</details>`,
-            ].join('\n');
-
-            await github.rest.issues.create({
-              owner: context.repo.owner, repo: context.repo.repo,
-              title: `Terraform drift detected and remediated — ${date}`,
-              body,
-              labels: [label],
-            });
-
-      - name: Open destroy review issue
-        if: steps.plan.outputs.exitcode == '2' && steps.plan.outputs.has_destroys == 'true'
-        uses: actions/github-script@v9
-        env:
-          WORKDIR: ${{ inputs.working-directory }}
-        with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            const plan = fs.readFileSync(path.join(process.env.WORKDIR || '.', 'plan.txt'), 'utf8');
-            const truncated = plan.length > 60000
-              ? plan.substring(0, 60000) + '\n...(truncated — see job logs for full output)'
-              : plan;
-
-            const label = 'drift';
-            try {
-              await github.rest.issues.getLabel({
-                owner: context.repo.owner, repo: context.repo.repo, name: label,
-              });
-            } catch {
-              await github.rest.issues.createLabel({
-                owner: context.repo.owner, repo: context.repo.repo,
-                name: label, color: 'e11d48',
-                description: 'Terraform drift was detected and remediated',
-              });
-            }
-
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const date = new Date().toISOString().slice(0, 10);
-            const body = [
-              `Drift was detected but **not automatically applied** because the plan contains resource destructions.`,
-              `Manual review and apply is required.`,
-              ``,
-              `**Run:** ${runUrl}`,
-              ``,
-              `<details><summary>Plan output</summary>`,
-              ``,
-              `\`\`\``,
-              truncated,
-              `\`\`\``,
-              `</details>`,
-            ].join('\n');
-
-            await github.rest.issues.create({
-              owner: context.repo.owner, repo: context.repo.repo,
-              title: `Terraform drift requires manual review (destroys detected) — ${date}`,
-              body,
-              labels: [label],
-            });
-
-      - name: Close open drift issues on clean run
+      # A clean run clears both conditions, so both markers are closed — one
+      # step each, because each names the issue it is closing.
+      - name: Close the remediated-drift issue on a clean run
         if: steps.plan.outputs.exitcode == '0'
-        uses: actions/github-script@v9
+        uses: ./.github-workflows/.github/actions/issue-upsert
         with:
-          script: |
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner, repo: context.repo.repo,
-              labels: 'drift', state: 'open',
-            });
-            for (const issue of issues) {
-              await github.rest.issues.update({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: issue.number, state: 'closed',
-              });
-              await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: issue.number,
-                body: `No drift detected on ${new Date().toISOString().slice(0, 10)} — closing.`,
-              });
-            }
+          marker: '<!-- terraform-drift -->'
+          state: absent
+          label: drift
+          close-comment: No drift detected by the daily drift-remediation run ([run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) — closing.
+
+      - name: Close the destroy-review issue on a clean run
+        if: steps.plan.outputs.exitcode == '0'
+        uses: ./.github-workflows/.github/actions/issue-upsert
+        with:
+          marker: '<!-- terraform-drift-review -->'
+          state: absent
+          label: drift
+          close-comment: The destroys this issue was raised for are no longer in the plan ([run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) — closing.
 
       - name: Fail on plan error
         if: steps.plan.outputs.exitcode == '1'

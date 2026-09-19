@@ -1,7 +1,7 @@
 # ADR-017: Keep the home-grown semantic-line-break tooling rather than adopting mdformat-sembr
 
-- Date: 2026-09-08
-- Status: Accepted
+- **Date:** 2026-09-08
+- **Status:** Accepted
 
 ## Context
 
@@ -95,13 +95,13 @@ That would need its own ADR and its own argument.
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - The check keeps the contract ADR-015 and ADR-016 promise: one rule, a located finding, suppression comments, the linter's ignores, and no runtime dependency.
 - The disagreement is recorded case by case, so the question is not re-litigated from recall the next time the plugin comes up; the plan names the conditions under which it is reopened.
 - Three upstream fixes, each with tests, are open as pull requests, and the emphasis-closer one alone removes the bulk of the damage the plugin would do to an already-conformant repo.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - Two scripts stay maintained here that a packaged tool might one day cover, and `reflow.py` keeps its known limitations until the re-evaluation.
 - Whether upstream accepts the patches, and how fast, is outside our control; the plan carries the follow-up.

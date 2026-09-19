@@ -1,7 +1,7 @@
 # ADR-016: The semantic-line-break check inherits markdownlint's `ignores`
 
-- Date: 2026-08-19
-- Status: Accepted
+- **Date:** 2026-08-19
+- **Status:** Accepted
 
 ## Context
 

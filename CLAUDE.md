@@ -60,6 +60,8 @@ Three of its rules bite on almost every change here, so they are worth having in
   A row is a pointer: what the document settles, and what a reader finds on opening it.
 - After an architectural decision, add an ADR in `docs/decisions/` and a summary row to its `README.md`.
 
+A new ADR copies the template in [`docs/decisions/README.md`](docs/decisions/README.md), which carries the plugin's canonical Nygard shape.
+
 Prose under `docs/`, and the explanatory comments in the workflows and composite actions, follow the **instructional-writing** style in the `writing-styles` skill, which `docs-standards` brings with it.
 State what is true now: what changed, and what it replaced, belong in the commit message and the ADR.
 

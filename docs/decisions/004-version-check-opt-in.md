@@ -1,7 +1,7 @@
 # ADR-004: Notify consumers of a frozen major via an opt-in version-check workflow
 
-- Date: 2026-07-24
-- Status: Accepted
+- **Date:** 2026-07-24
+- **Status:** Accepted
 
 > **Renamed by [ADR-012](012-flungo-workflows-meta-workflow.md).**
 > The decision below stands unchanged — opt-in, per-consumer, reporting through an issue in the consumer's own repository — but the workflow it describes moves from `version-check.yml` to `flungo-workflows.yml`, with `version-check` as a job inside it, at the `v2` cut.
@@ -45,13 +45,13 @@ This supersedes the Renovate/Dependabot follow-up from ADR-001.
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - No credential to provision or rotate — the mechanism that would have needed a broad cross-owner token is avoided entirely.
 - The notification lands **where the migration happens** (the consumer's repo) and tracks progress: the issue opens on the first scheduled run after a major is cut and closes itself once every ref is on the latest major.
 - Auto-discovers the consumer's own pins from its workflow files, so it can't drift from a hand-maintained input.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - **Opt-in means a non-adopting consumer self-reports nothing** — a residual silent-drift gap that only the (out-of-scope) producer census would close.
 - **No single fleet-wide rollup** — migration state is spread across each consumer's own issues rather than one dashboard.

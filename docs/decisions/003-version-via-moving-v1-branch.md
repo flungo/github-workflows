@@ -1,7 +1,7 @@
 # ADR-003: Version via a moving major branch, advanced automatically
 
-- Date: 2026-07-23
-- Status: Accepted
+- **Date:** 2026-07-23
+- **Status:** Accepted
 
 ## Context
 
@@ -53,14 +53,14 @@ Done by the maintainer with push access; ordered so `@v1` never fails to resolve
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - No force-pushed tags and no manual bump step: every merge that passes review advances `@vN`.
 - Consumers pinning `@vN` need no change and follow the branch automatically.
 - The major-bump decision is explicit and reviewable — a one-line diff — not an implicit property of commit messages.
 - Fast-forward-only advancement means a bad state can't be forced onto consumers; rolling back is an ordinary revert PR into `main` (which the next advance carries).
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - A breaking change with a forgotten `MAJOR_BRANCH` bump *will* be auto-advanced onto `@v<current>`.
   Catching it is a review responsibility; the fast-forward guard does not detect a semantic break.

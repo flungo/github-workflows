@@ -1,7 +1,7 @@
 # ADR-001: Centralised reusable workflows
 
-- Date: 2026-07-21
-- Status: Accepted
+- **Date:** 2026-07-21
+- **Status:** Accepted
 
 > **Revised by [ADR-003](003-version-via-moving-v1-branch.md):** the versioning mechanism below (a moving `v1` **tag**) is superseded by a moving `v1` **branch**.
 > Consumers still pin `@v1`; only how the ref advances changed.
@@ -40,13 +40,13 @@ Details:
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - One source of truth: a workflow fix lands once and propagates via a tag bump.
 - Onboarding a repo is a short caller file — Terraform or Markdown, whichever it needs.
 - The reusable workflows are validated on every PR here (actionlint + the repo's own Markdown checks) before a tag moves.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - A tag bump in each consumer is still required to pick up changes; pairing this with Renovate/Dependabot is a follow-up so the bumps don't themselves silently lag.
   (Both parts are since superseded: the moving branch of [ADR-003](003-version-via-moving-v1-branch.md) removes the routine bump, and [ADR-004](004-version-check-opt-in.md) replaces the dependency-bot follow-up with an opt-in version check.)

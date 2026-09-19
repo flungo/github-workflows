@@ -1,7 +1,7 @@
 # ADR-005: Extend the Terraform workflow via a published plan artifact
 
-- Date: 2026-07-24
-- Status: Accepted
+- **Date:** 2026-07-24
+- **Status:** Accepted
 
 ## Context
 
@@ -25,14 +25,14 @@ The artifact is the entire contract between the workflow and the extension; the 
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - No duplication of the plan sequence — the workflow stays canonical, and the extension consumes its output rather than re-implementing it.
 - Low drift: the contract is the artifact's shape, not the orchestration, so steps added or reordered here don't ripple into consumers' follow-on jobs.
 - Additive and provider-agnostic — no consumer-specific concern leaks into the shared workflow, and it ships on `v1` with no major bump (per [ADR-003](003-version-via-moving-v1-branch.md)).
 - The artifact doubles as a debugging aid: any run's plan can be downloaded, including a failed one.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - Extensions can only run before/after the *whole* called job, not mid-sequence.
   Fine for post-plan hooks; a consumer that ever needs to interleave a step mid-plan would still need the composite-action decomposition.

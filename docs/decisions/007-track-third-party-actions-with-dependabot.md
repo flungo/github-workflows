@@ -1,7 +1,7 @@
 # ADR-007: Track third-party actions with Dependabot
 
-- Date: 2026-07-26
-- Status: Accepted
+- **Date:** 2026-07-26
+- **Status:** Accepted
 
 ## Context
 
@@ -30,12 +30,12 @@ That config is per-repo and small — it is **not** centralised here, because De
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - Third-party actions stay current fleet-wide from a single config, propagated by `@v1` — no manual chasing, and runtime deprecations (Node 20 → 24) are caught proactively rather than after a warning.
 - The boundary is explicit: Dependabot owns third-party actions; the moving branch + `version-check.yml` own this repo's own major.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - Recurring Dependabot PRs to review, though grouping keeps it to one weekly PR that flows through the repo's own `actionlint` + Markdown CI.
   Review watches for a bump that shifts behaviour and absorbs it behind `@v1` (fix-forward) rather than letting it break the interface.

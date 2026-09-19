@@ -1,7 +1,7 @@
 # ADR-018: One marker-upsert action per resource, not one shared by both
 
-- Date: 2026-09-18
-- Status: Accepted
+- **Date:** 2026-09-18
+- **Status:** Accepted
 
 ## Context
 
@@ -52,14 +52,14 @@ Hoisting it would mean a shared directory under `.github/actions/`, where the `c
 
 ## Consequences
 
-**Positive:**
+### Positive
 
 - Pagination, marker matching and the exclusion of pull requests from an issue listing are one implementation's problem per resource, unit-tested against a fake client: create, update in place, retire-when-clear, the past-the-first-page case and the rejections all run in `action-tests.yml`, where previously none of them ran anywhere.
   Every path writes into the repository it runs in, so those tests are the only place that coverage could live.
 - The four callers keep no copy of any of it, and a fifth has two actions to choose between rather than a pattern to reimplement.
 - Every input on each action is live for every caller: neither carries a field that is meaningless for the resource it was given.
 
-**Negative / trade-offs:**
+### Negative — trade-offs
 
 - Two actions to keep in step.
   A change to the shared idea — matching a marker case-insensitively, say — is now made twice, and the six duplicated lines are a deliberate cost recorded here rather than an oversight.

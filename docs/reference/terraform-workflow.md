@@ -52,12 +52,19 @@ See [`adopting-terraform-workflows.md`](../runbooks/adopting-terraform-workflows
 ## Shared composite actions
 
 The variable export (provider token + the variable maps) is implemented once, as the `export-terraform-variables` composite action in this repo, not inline in each workflow.
-Each Terraform job fetches it with an extra sparse checkout of `flungo/github-workflows` at the workflow file's own commit (`job.workflow_sha`) into a `.github-workflows/` directory in the job workspace — so the action always matches the `@v2` (or feature-branch) ref the caller pinned, and the directory sits outside anything Terraform reads ([ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md)).
+Both workflows use a second one to place what they report: `terraform-drift.yml` its issues via `issue-upsert`, `terraform.yml` its plan comment via `pr-comment-upsert`.
+Each finds the thing carrying a hidden marker across every page of a listing and keeps exactly one of it — two actions rather than one, because a comment has no title, labels or open/closed state, and is retired by deleting it rather than closing it ([ADR-018](../decisions/018-one-upsert-action-per-resource.md)).
+The Markdown and `flungo-workflows` families keep issues of their own through the same `issue-upsert`.
+
+Each Terraform job fetches them with an extra sparse checkout of `flungo/github-workflows` at the workflow file's own commit (`job.workflow_sha`) into a `.github-workflows/` directory in the job workspace — so the actions always match the `@v2` (or feature-branch) ref the caller pinned, and the directory sits outside anything Terraform reads ([ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md)).
 
 ## Drift remediation & pausing
 
 `terraform-drift.yml` applies the default branch on a daily schedule so live state cannot silently diverge — valuable mainly where auto-rotating credentials must stay authoritative, so it is **opt-in**.
 It never auto-applies destroys (it opens a review issue instead), opens a `drift`-labelled issue when it remediates, and closes those issues on a clean run.
+
+There is at most one open issue of each kind, each found by its own hidden marker and updated in place: a remediated-drift issue and a destroy-review issue, so a destroy plan waiting on a human is never overwritten by a later run that remediated something else.
+A clean run comments on each and closes it; any other `drift`-labelled issue is left alone.
 
 Two ways to pause it, both read from the caller repo:
 

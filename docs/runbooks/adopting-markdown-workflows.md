@@ -265,7 +265,7 @@ Enable it at project scope in the repo's `.claude/settings.json` — never by pa
 }
 ```
 
-Repo-specific facts still belong in the repo's own `CLAUDE.md` — e.g. the pinned local markdownlint-cli2 version (see § Adoption pitfalls and sandbox constraints) and the justification for any per-repo lint override.
+Repo-specific facts still belong in the repo's own `CLAUDE.md` — e.g. which trees the repo excludes from the checks, and the justification for any per-repo lint override.
 A repo that inlined these conventions during an earlier adoption removes the copies in favour of the plugin when next touched.
 The extraction is recorded in [claude-plugins ADR 004](https://github.com/flungo/claude-plugins/blob/main/docs/decisions/004-markdown-standards-plugin.md).
 
@@ -276,14 +276,12 @@ Reading these first means going straight to implementing the plan instead of re-
 
 **Match the CI tool versions locally, or you chase findings CI never reports.**
 
-- `markdown-lint.yml` runs `DavidAnson/markdownlint-cli2-action@v24`, which pins a specific `markdownlint-cli2` (0.23.2 / markdownlint 0.41.1 as of 2026-09-16).
-  A newer `markdownlint-cli2` installed locally carries rules the pinned CI version does **not** have — e.g. `MD060` (table-column-style), which fires on every table and produces dozens of findings CI will never raise.
-  Pin the local tool to the CI version: `npm install markdownlint-cli2@<pinned>`.
-- Find the action's pinned version by reading its manifest at the tag: `https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2-action/<tag>/package.json` (readable via `WebFetch` even for repos outside the session scope).
-  `@v24` is a moving major tag, so re-derive it rather than trusting the pair above or one recorded in a repo: the pin drifts with no commit anywhere to mark it, which is how several of these records went stale.
+- `markdown-lint.yml` tracks `DavidAnson/markdownlint-cli2-action` by major tag, so the `markdownlint-cli2` version underneath it moves on its own — a Dependabot bump to the action changes it with no commit in any consumer to mark the change.
+  A local copy newer than CI's carries rules CI does not have — `MD060` (table-column-style) arrived that way and fires on every table — and an older one passes clean against rules CI does enforce.
+- Read the version off the first line of the `markdown-lint` job's log in a recent run of the repo, and match it: `npm install markdownlint-cli2@<that version>`.
+  A version written down anywhere is a snapshot of when it was written, so treat one you find as a datestamped observation rather than a pin — the [`markdown-standards`](https://github.com/flungo/claude-plugins/tree/main/plugins/markdown-standards) plugin's § Running the Markdown checks locally is the standing procedure.
 - `markdownlint-cli2` only accepts a config file **named** `.markdownlint-cli2.jsonc` (or a `*.markdownlint-cli2.jsonc` prefix); `--config /tmp/arbitrary.json` is rejected.
   Name any throwaway config accordingly (e.g. `check.markdownlint-cli2.jsonc`).
-- Record the pinned version in the adopting repo's `CLAUDE.md`, so the next agent matches CI on the first run.
 
 **lychee: install via cargo, not the GitHub release, in a locked-down sandbox.**
 

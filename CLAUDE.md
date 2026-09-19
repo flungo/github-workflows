@@ -47,14 +47,21 @@ Three families:
 - **Validate before it reaches `main`.**
   `ci.yml` runs actionlint and the repo's own Markdown checks on every PR; `action-tests.yml` gives every composite action its own isolated test job (colocated `test.sh` + a wiring smoke step, with a `coverage` guard so a new action can't land untested).
   The merge that passes them is what advances `v2`; a workflow change is not done until CI is green.
-- **Git & docs conventions** follow the fleet standard (Conventional Commits, linear history, squash-vs-rebase, no fixup commits, PR-only landing) — the same as the consumer repos and Fabrizio's `code-review-workflow` skill.
+- **Git conventions** are the fleet standard, carried by the `git-conventions` plugin this repo enables: Conventional Commits, linear history, squash-vs-rebase, no fixup commits left on a branch, PR-only landing.
   Never commit directly to `main`; work on a feature branch and land via PR.
 
 ## Documentation standards
 
-Same rules as the sibling repos, following the Diátaxis split: docs are task-oriented (`runbooks/`), information-oriented (`reference/`), or decision-oriented (`decisions/`); plans (`plans/`) are one-time and retired when done.
-After any change under `docs/`, refresh the relevant `README.md` index in the same commit — a stale index row is actively misleading.
-After an architectural decision, add an ADR in `docs/decisions/` and a one-line summary to its `README.md`.
+The `docs-standards` plugin carries these, and this repo enables it.
+Three of its rules bite on almost every change here, so they are worth having in front of you:
+
+- The Diátaxis split — docs are task-oriented (`runbooks/`), information-oriented (`reference/`), or decision-oriented (`decisions/`); plans (`plans/`) are one-time and retired when done.
+- After any change under `docs/`, refresh that directory's `README.md` index in the same commit — a stale index row is actively misleading.
+  A row is a pointer: what the document settles, and what a reader finds on opening it.
+- After an architectural decision, add an ADR in `docs/decisions/` and a summary row to its `README.md`.
+
+Prose under `docs/`, and the explanatory comments in the workflows and composite actions, follow the **instructional-writing** style in the `writing-styles` skill, which `docs-standards` brings with it.
+State what is true now: what changed, and what it replaced, belong in the commit message and the ADR.
 
 ## Deferred follow-ups
 
@@ -79,10 +86,14 @@ Improvements intentionally not done yet:
 
 ## Working in this repo with Claude Code
 
-Match CI's markdownlint locally before pushing, or you chase findings CI never raises and miss ones it does: `npm install markdownlint-cli2@0.23.2` (markdownlint 0.41.1), the version `DavidAnson/markdownlint-cli2-action@v24` pins.
-`@v24` is a moving major tag, so this pin drifts on its own — which is how it went stale before: re-derive it from the action's own manifest at `https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2-action/v24/package.json` rather than trusting this line, and correct it here when it has moved.
+This repo adopts the fleet's standards plugins in [`.claude/settings.json`](.claude/settings.json) — `git-conventions`, `markdown-standards` and `docs-standards` from the `flungo-plugins` marketplace.
+A local Claude Code session loads them; a **web session does not load a repo's adopted plugins at all**, so this file carries the rules that matter either way, each naming the plugin that owns the detail.
 
-The repo's prose follows semantic line breaks and `markdown-sembr.yml` enforces the MUST rule, so keep one sentence per source line in any Markdown you touch.
+Run the Markdown checks locally before pushing, or you chase findings CI never raises and miss ones it does.
+`markdown-standards` covers how, including where the linter version comes from: a recent `markdown-lint` job's log, never a version written down in a file.
+This repo dogfoods its own workflows, so its `ci.yml` runs carry that job.
+
+Its prose follows semantic line breaks — a `markdown-standards` prose convention — and `markdown-sembr.yml` enforces the MUST rule against this repo itself, so keep one sentence per source line in any Markdown you touch.
 
 Use the GitHub MCP (`mcp__github__*`) for PRs, CI status, and comments — there is no `gh` CLI.
 Trigger on-demand runs with `mcp__github__actions_run_trigger` (`workflow_id`, `ref`), surface the run URL (`https://github.com/flungo/github-workflows/actions/runs/<run_id>`), and report the outcome.

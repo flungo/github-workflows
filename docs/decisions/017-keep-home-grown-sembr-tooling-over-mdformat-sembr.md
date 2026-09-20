@@ -1,7 +1,7 @@
 # ADR-017: Keep the home-grown semantic-line-break tooling rather than adopting mdformat-sembr
 
 - **Date:** 2026-09-08
-- **Status:** Accepted
+- **Status:** Accepted (mdformat as a general formatter decided by [ADR-019](019-adopt-mdformat-through-mdformat-markdownlint.md))
 
 ## Context
 
@@ -91,7 +91,7 @@ A fork is warranted only if upstream does not respond; a plugin of our own would
 
 **mdformat as a general formatter is a separate question, not decided here.**
 The measurement above shows it is within a delimiter row of the house style once tuned, which makes it a plausible future addition alongside markdownlint rather than a replacement for anything.
-That would need its own ADR and its own argument.
+That would need its own ADR and its own argument; [ADR-019](019-adopt-mdformat-through-mdformat-markdownlint.md) makes it.
 
 ## Consequences
 

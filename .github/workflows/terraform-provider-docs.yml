@@ -43,6 +43,7 @@ jobs:
           cache: true
       - uses: hashicorp/setup-terraform@v4
         with:
+          terraform_version: ${{ inputs.terraform-version }}
           terraform_wrapper: false
       - name: Generate documentation
         env:

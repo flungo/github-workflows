@@ -52,7 +52,7 @@ env:
   #
   # Nothing in this workflow reads it. The version-check job in
   # flungo-workflows.yml reads it from main — the one ref that always reflects
-  # the current state — and ci.yml's release-state job warns on every pull
+  # the current state — and self-ci.yml's release-state job warns on every pull
   # request for as long as the two differ.
   STABLE_MAJOR: v2
 

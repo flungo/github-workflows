@@ -71,7 +71,7 @@ This is the opposite of where it first seemed to belong, and the reason is the m
 So a link added *as part of* that cut lands on `v2` only, and every consumer — all of them pinned `@v1` today — would be told it is behind by the frozen `v1` copy, which has no link.
 The link would first reach anyone during a `v2` → `v3` migration, having been useless for the one it was written for.
 
-Landing it on `main` beforehand means [`release.yml`](../../.github/workflows/release.yml) fast-forwards it onto `v1` like any other non-breaking change, so the whole fleet carries it before `v2` appears.
+Landing it on `main` beforehand means [`self-release.yml`](../../.github/workflows/self-release.yml) fast-forwards it onto `v1` like any other non-breaking change, so the whole fleet carries it before `v2` appears.
 It goes in its own pull request ahead of the cut: additive, independently reviewable, and nothing about it depends on the naming decisions.
 
 The cost is editing the file twice — once here to add the link, once at the cut to rename it ([ADR-012](012-flungo-workflows-meta-workflow.md)).
@@ -80,7 +80,7 @@ That is not avoidable and not worth avoiding: `v1` needs the link and `v2` needs
 The issue-body construction is **extracted to a composite action** rather than left as inline shell, following [ADR-009](009-composite-action-via-workflow-identity-checkout.md)'s pattern — the "which sections lie between these two majors" logic is the first part of this workflow with non-trivial logic to get wrong, at both ends of the span and in the ordering.
 
 That there is no second major yet is not an obstacle to testing it.
-The action takes the pinned and current majors as **inputs**, so `action-tests.yml` supplies them directly and can exercise a multi-major span, a single hop, and the already-current case without any of those majors existing.
+The action takes the pinned and current majors as **inputs**, so `self-action-tests.yml` supplies them directly and can exercise a multi-major span, a single hop, and the already-current case without any of those majors existing.
 
 Tracked as [#36](https://github.com/flungo/github-workflows/issues/36).
 

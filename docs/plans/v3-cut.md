@@ -1,6 +1,6 @@
 # Plan: stage and cut the v3 major
 
-Status: **scope agreed, execution model agreed — pre-cut work in progress**.
+Status: **scope agreed, execution model agreed — pre-cut work complete, the cut not yet made**.
 Tracked to completion, then retired ([plans convention](README.md)); the permanent record of each decision lands in the reference docs and, where architectural, an ADR at cut time.
 
 This plan originally scoped **v2**.
@@ -146,7 +146,7 @@ The binary plan file embeds every input variable in plaintext — the provider t
 It would also pay a second full checkout/init/provider-download on every merge, to preserve a same-run fidelity the single-job apply already has.
 
 **Duplication between the two jobs is handled at two layers.**
-The shared sequence (variable export → `setup-terraform` → `init`, and the plan-and-artifact block if it extracts cleanly) becomes a composite action per [ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md) — tested in `action-tests.yml` like its siblings, and retiring the same sequence `terraform-drift.yml` already duplicates today, which per-file mechanisms could never reach.
+The shared sequence (variable export → `setup-terraform` → `init`, and the plan-and-artifact block if it extracts cleanly) becomes a composite action per [ADR-009](../decisions/009-composite-action-via-workflow-identity-checkout.md) — tested in `self-action-tests.yml` like its siblings, and retiring the same sequence `terraform-drift.yml` already duplicates today, which per-file mechanisms could never reach.
 The residue each job must keep inline — the caller checkout and the ADR-009 fetch, which is itself what makes the local action referencable — can be deduplicated with YAML anchors, which GitHub Actions workflows support as of 2025-09-18 (basic YAML 1.2.2 anchors and aliases only; merge keys `<<:` are not supported, so identical whole steps alias but blocks cannot be parameterised or spliced).
 
 The required-set change (`terraform / terraform` → `terraform / plan` + `terraform / format`) is **v3's one required-check change** (hardcoded by `terraform-github`'s `standard-repository` module for every repository with its `terraform` flag).
@@ -156,7 +156,7 @@ Record the decision in an ADR at implementation time: it completes ADR-011's del
 ## Pre-cut work — gates the cut
 
 Non-breaking work that lands on `v2` before the cut, so the v3 diff stays pure contract (agreed 2026-09-17: prerequisites complete before cutting).
-None of it has shipped yet:
+What has shipped is tracked in one place, the [completion checklist](#completion-checklist), rather than restated here:
 
 1. **This plan merges** — [#27](https://github.com/flungo/github-workflows/pull/27).
 2. **Deprecation warning for `tf-var-name` / `provider_token`** (scope item 1) — a `::warning::` in `export.sh`.
@@ -165,11 +165,11 @@ None of it has shipped yet:
    `terraform-provider-test.yml` and `terraform-provider-docs.yml` both declare and document a `terraform-version` input, but neither passes it to `setup-terraform` — it is accepted and silently ignored (the docs check always renders with latest Terraform).
    Wiring it (`terraform_version: ${{ inputs.terraform-version }}`) makes behaviour match the documented contract, and the default (`latest`) means no consumer sees a change.
    A bug fix, not a v3 item.
-4. **`self-` prefix for the internal workflows** (`ci.yml` → `self-ci.yml`, `action-tests.yml` → `self-action-tests.yml`, `release.yml` → `self-release.yml`) — seeded from CLAUDE.md § Deferred follow-ups.
-   Internal filenames are not consumer contract, so the renames are non-breaking — with one sequencing exception [ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md) introduced: every consumer's `version-check` reads `STABLE_MAJOR` out of `release.yml` by path from `main`, and a frozen major's consumers run that major's copy of the reader.
-   So first ship a reader that tolerates both paths, and only rename once the tolerant reader is on every unfrozen major — both steps before the cut, so `v2` freezes tolerant.
-   Includes the self-CI guard: a check asserting every *unprefixed* workflow in `.github/workflows/` is `workflow_call`-only (the dogfooded callers in `self-ci.yml` are prefixed; the callee products are `workflow_call`-only).
-   Remember the internal references: `releasing.md` and CLAUDE.md name `release.yml` (including as a `workflow_id` for dispatch), and `action-tests.yml`'s coverage job greps its own filename.
+4. **Done — the `self-` prefix for the internal workflows** (`ci.yml` → `self-ci.yml`, `action-tests.yml` → `self-action-tests.yml`, `release.yml` → `self-release.yml`), seeded from CLAUDE.md § Deferred follow-ups and landed as the two steps its sequencing needs.
+   Internal filenames are not consumer contract, so the renames are non-breaking — with one sequencing exception [ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md) introduced: every consumer's `version-check` reads `STABLE_MAJOR` out of the release workflow by path from `main`, and a frozen major's consumers run that major's copy of the reader.
+   So the tolerant reader went first — both paths, the new name ahead of the old — and the renames followed, both before the cut, so `v2` freezes tolerant.
+   A reader on a frozen major still reads the old path alone; ADR-014's amended trade-off records what that costs and why the old path stays in the list rather than being tidied away.
+   The renames carry the self-CI guard — `self-ci.yml`'s `workflow-scope` job, which fails when an *unprefixed* workflow in `.github/workflows/` is reachable by anything other than `workflow_call` (the dogfooded callers live inside the prefixed `self-ci.yml`, and every product already qualifies) — and the internal references: `releasing.md`, CLAUDE.md, the README and the ADRs that name the release workflow (including as a `workflow_id` for dispatch), plus the coverage job's grep for its own filename.
 5. **Fail loud on an unrecognised `operation`.**
    Anything other than `apply` silently plans today, so a typo'd dispatch (`aply`) reports success having done something other than what was asked.
    Rejecting values outside `plan`/`apply` applies [ADR-008](../decisions/008-secret-terraform-variables.md)'s fail-at-the-point-of-error principle; only already-invalid input is affected, so it is a fix, not a break.
@@ -305,7 +305,7 @@ Pre-cut (gates the cut):
 - [x] Deprecation warning in `export.sh`
 - [x] `terraform-version` wired in both provider workflows
 - [x] `STABLE_MAJOR` reader tolerates both release-workflow paths
-- [ ] `self-` renames + unprefixed-means-`workflow_call`-only guard — only once the tolerant reader is on every unfrozen major
+- [x] `self-` renames + unprefixed-means-`workflow_call`-only guard (`self-ci.yml`'s `workflow-scope` job)
 - [x] Fail-loud `operation` fix
 - [x] #38 upsert extraction — `issue-upsert` + `pr-comment-upsert` per [ADR-018](../decisions/018-one-upsert-action-per-resource.md), all four call sites migrated
 

@@ -1,7 +1,7 @@
 # Releasing: how `@vN` advances
 
 How a change here reaches the repos that pin `@vN`.
-The model is [ADR-003](../decisions/003-version-via-moving-v1-branch.md): consumers pin a moving major **branch** (`v1`, later `v2`, …), and [`release.yml`](../../.github/workflows/release.yml) advances it automatically on every merge to `main`.
+The model is [ADR-003](../decisions/003-version-via-moving-v1-branch.md): consumers pin a moving major **branch** (`v1`, later `v2`, …), and [`self-release.yml`](../../.github/workflows/self-release.yml) advances it automatically on every merge to `main`.
 Most of the time there is nothing to do.
 
 ## The normal case — a non-breaking change
@@ -9,8 +9,8 @@ Most of the time there is nothing to do.
 Nothing beyond the usual PR.
 When your PR merges to `main`:
 
-1. `release.yml` runs on the push to `main`.
-2. It fast-forwards the current major branch (the one named by `MAJOR_BRANCH` in `release.yml`) to the merged commit.
+1. `self-release.yml` runs on the push to `main`.
+2. It fast-forwards the current major branch (the one named by `MAJOR_BRANCH` in `self-release.yml`) to the merged commit.
 3. Consumers pinning `@v<current>` pick it up on their next run — no bump on their side.
 
 The review gate is the PR into `main`.
@@ -28,17 +28,17 @@ See [ADR-011](../decisions/011-reusable-job-ids-are-the-check-name.md).
 
 In the **same PR** as the breaking change:
 
-1. Edit `MAJOR_BRANCH` in `release.yml` — bump it one major, e.g. `v2` → `v3`.
+1. Edit `MAJOR_BRANCH` in `self-release.yml` — bump it one major, e.g. `v2` → `v3`.
    **Leave `STABLE_MAJOR` alone.**
    The gap between the two is the new major's [settling period](#the-settling-period), and opening it is the point.
 2. **Add the new major's section to [`upgrading.md`](../reference/upgrading.md)** — what breaks and what a consumer must do about it, in the same PR as the breaking change while you still hold the context.
    Breaking changes only; see [ADR-013](../decisions/013-per-major-upgrade-guide.md) for what belongs there and what does not.
    It stays editable until the promotion.
 3. **Add the settling callout to the [README](../../README.md)**, in the slot its HTML comment marks — [template below](#the-settling-callout).
-   `ci.yml`'s `release-state` job fails without it, so this is not a step you can forget.
+   `self-ci.yml`'s `release-state` job fails without it, so this is not a step you can forget.
 4. Land the PR as normal.
 
-On merge, `release.yml` sees the new name, **creates `v<new>` at `main`**, and never touches `v<old>` again — so `@v<old>` consumers **freeze** on their last compatible commit.
+On merge, `self-release.yml` sees the new name, **creates `v<new>` at `main`**, and never touches `v<old>` again — so `@v<old>` consumers **freeze** on their last compatible commit.
 Don't pre-create `v<new>` by hand: creation is restricted to the release App and the push would be rejected (see [Never](#never)).
 That one-line edit, visible in the PR diff, is the whole "this is a major" decision; there is nothing else to parse or label.
 
@@ -53,10 +53,10 @@ Between them:
 - **No consumer is prompted onto it.**
   `version-check` compares pins against `STABLE_MAJOR`, so opted-in consumers stay on the previous major and hear nothing.
 - **The new major can take a further breaking change in place.**
-  Land it on `main` as an ordinary merge and `release.yml` advances the new major onto it.
+  Land it on `main` as an ordinary merge and `self-release.yml` advances the new major onto it.
   **No `MAJOR_BRANCH` bump** — nobody has been asked to move yet, so changing it costs nobody a migration.
 - **Every pull request carries a reminder.**
-  `ci.yml`'s `release-state` job annotates each run for as long as the two values differ.
+  `self-ci.yml`'s `release-state` job annotates each run for as long as the two values differ.
   The annotation is non-blocking: settling is a legitimate state to merge onto, and it lasts as long as adopting the major takes.
 - **The README says so**, via the callout below, so someone arriving at the repository is not handed a contract that can still change.
 
@@ -88,7 +88,7 @@ Use it that way: **cut the major, then migrate your own repositories**, and fix 
 
 Two things it does *not* change:
 
-- **The old major froze at the cut**, not at the promotion — `release.yml` stopped advancing it the moment `MAJOR_BRANCH` changed.
+- **The old major froze at the cut**, not at the promotion — `self-release.yml` stopped advancing it the moment `MAJOR_BRANCH` changed.
   Settling delays the prompt, not the freeze.
   A fix the frozen major genuinely needs can still be [backported](#patching-a-frozen-major).
 - **A settling change is still a breaking change.**
@@ -102,7 +102,7 @@ In practice that is you, migrating the fleet.
 When adopting the new major across your own repositories has proved the contract, promote it.
 In one PR:
 
-1. Edit `STABLE_MAJOR` in `release.yml` to match `MAJOR_BRANCH`.
+1. Edit `STABLE_MAJOR` in `self-release.yml` to match `MAJOR_BRANCH`.
 2. **Remove the [settling callout](#the-settling-callout) from the README**, and bump its pinned adoption-runbook links (`blob/v<old>/…` → `blob/v<new>/…`).
    `release-state` fails until both match the new state, so neither can be left behind.
 3. **Update the docs that track the current version.**
@@ -118,10 +118,10 @@ A breaking change after it cuts the next major, as normal.
 
 ## A breaking change you didn't foresee
 
-When an incompatibility is noticed only *after* it merged — `release.yml` has already fast-forwarded `@v<current>` onto it:
+When an incompatibility is noticed only *after* it merged — `self-release.yml` has already fast-forwarded `@v<current>` onto it:
 
 1. **Check whether the current major is still settling.**
-   If `MAJOR_BRANCH` and `STABLE_MAJOR` differ — `ci.yml`'s `release-state` job says so on every PR — nobody has been prompted onto this major yet.
+   If `MAJOR_BRANCH` and `STABLE_MAJOR` differ — `self-ci.yml`'s `release-state` job says so on every PR — nobody has been prompted onto this major yet.
    Fix it in place on `main`, amend that major's [`upgrading.md`](../reference/upgrading.md) section, and stop.
    No new major; that is what [the settling period](#the-settling-period) is for.
 2. **Otherwise prefer fixing it forward.**
@@ -137,7 +137,7 @@ When an incompatibility is noticed only *after* it merged — `release.yml` has 
 
 ## Patching a frozen major
 
-Once a newer major exists, `release.yml` no longer advances the older one.
+Once a newer major exists, `self-release.yml` no longer advances the older one.
 To fix a bug on a frozen major — `v1`, now that `v2` is cut — open a PR **targeting that branch** (e.g. base `v1`) with the patch — written directly or cherry-picked from `main`.
 It merges straight onto that branch; nothing auto-advances it.
 
@@ -148,20 +148,21 @@ To surface that, consumers **opt in** to the reusable [`flungo-workflows.yml`](.
 It needs no credential (the consumer reads this public repo's majors and writes the issue with its own token).
 See [`adopting-flungo-workflows.md`](adopting-flungo-workflows.md) for the opt-in caller, and [ADR-004](../decisions/004-version-check-opt-in.md).
 
-The comparison is against `STABLE_MAJOR`, read from `release.yml` on `main` — so the first issues appear when a major is [promoted](#promoting-a-major-to-stable), not when it is cut, and a repository lagging two majors is pointed at the settled one rather than the one still moving.
+The comparison is against `STABLE_MAJOR`, read from `self-release.yml` on `main` — so the first issues appear when a major is [promoted](#promoting-a-major-to-stable), not when it is cut, and a repository lagging two majors is pointed at the settled one rather than the one still moving.
 If that value can't be read, the job falls back to the newest published major and prompts as it did before the state existed.
+The path is read under both `self-release.yml` and `release.yml`, because a consumer frozen on an older major runs *that* major's copy of the reader and can never learn a new path — so renaming this file again means teaching the reader the new name and shipping that first ([ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md)).
 
 A single producer-side rollup of *every* consumer's state is intentionally **not** built — it would need a broad cross-owner credential — and is left as a possible future addition.
 
 ## Testing the decision without moving anything
 
-`release.yml` has a `workflow_dispatch` with a `dry_run` input (**default `true`**).
+`self-release.yml` has a `workflow_dispatch` with a `dry_run` input (**default `true`**).
 Run it to print the plan — *create*, *fast-forward*, or *nothing to do* — without touching any branch:
 
-> **🤖 Agent** — trigger it with `mcp__github__actions_run_trigger` (`workflow_id: release.yml`, `ref: main`); the run's log shows the `[dry-run] would …` notice.
+> **🤖 Agent** — trigger it with `mcp__github__actions_run_trigger` (`workflow_id: self-release.yml`, `ref: main`); the run's log shows the `[dry-run] would …` notice.
 > Set `dry_run: false` only to force a real advance (e.g. bootstrapping or recovery).
 
-If `release.yml` fails with **"not an ancestor of main"**, the major branch has diverged from `main` (history was rewritten, or it was moved by hand).
+If `self-release.yml` fails with **"not an ancestor of main"**, the major branch has diverged from `main` (history was rewritten, or it was moved by hand).
 Reconcile the branch before the next merge; the workflow refuses to force a non-fast-forward on its own.
 
 ## Branch protection
@@ -171,20 +172,20 @@ This is the **standard branch protection managed as code by [`flungo/terraform-g
 
 - **`main`** — require a pull request before merging; block force-pushes; block deletion.
   Repository admins keep a deliberate **pull-request-scoped** bypass — they may merge a PR that doesn't meet the rules — but cannot push straight to the branch.
-- **`v*`** (pattern `v[0-9]*`) — the same, **plus an `always` bypass for the release App** ([below](#release-push-identity)), so `release.yml`'s fast-forward is allowed while direct human/agent pushes are not.
-  It also **restricts creation** to that App: only `release.yml` can cut a new major, and no one can create an unrelated branch under the pattern.
+- **`v*`** (pattern `v[0-9]*`) — the same, **plus an `always` bypass for the release App** ([below](#release-push-identity)), so `self-release.yml`'s fast-forward is allowed while direct human/agent pushes are not.
+  It also **restricts creation** to that App: only `self-release.yml` can cut a new major, and no one can create an unrelated branch under the pattern.
   Reverts and backports reach `v*` as ordinary PRs (base `v*`), which the force-push block still permits (a revert is a forward commit) — advancing a release branch by PR stays open by design.
 
 ### Release-push identity
 
-The default `GITHUB_TOKEN` (`github-actions[bot]`) generally cannot be a ruleset bypass actor, so `release.yml` pushes as a **GitHub App**: it mints a short-lived installation token in-run with [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token) and uses it for checkout and push, so there is no long-lived push credential to rotate.
+The default `GITHUB_TOKEN` (`github-actions[bot]`) generally cannot be a ruleset bypass actor, so `self-release.yml` pushes as a **GitHub App**: it mints a short-lived installation token in-run with [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token) and uses it for checkout and push, so there is no long-lived push credential to rotate.
 
 Inventory — everything this identity adds to the repo:
 
 | Item | Kind | Purpose |
 | --- | --- | --- |
 | Release App | GitHub App owned by `flungo`, installed on **this repo only**, repository permission **Contents: read & write** and nothing else | The push identity; the **bypass actor** on the `v*` ruleset |
-| `RELEASE_APP_ID` | Actions **variable** on this repo | The App's ID (not sensitive). Required — `release.yml` fails without it |
+| `RELEASE_APP_ID` | Actions **variable** on this repo | The App's ID (not sensitive). Required — `self-release.yml` fails without it |
 | `RELEASE_APP_PRIVATE_KEY` | Actions **secret** on this repo | A private key generated for the App (PEM), used only to mint the in-run token |
 
 To provision (once) — all under the `flungo` account:
@@ -235,9 +236,9 @@ Exposure of the key is bounded by the App's single permission and single-repo in
   The pattern is fnmatch rather than a regex, so it catches `v9`, `v1x` and `v2-test` too.
   The cost it guards against is worst for an *exact* name: a hand-made `v3` would appear to every opted-in consumer as a published major nobody cut.
   Since [ADR-014](../decisions/014-promote-a-major-to-stable-by-hand.md) that no longer raises migration issues — [`flungo-workflows.yml`](../../.github/workflows/flungo-workflows.yml) prompts against `STABLE_MAJOR`, which such a branch does not touch — but it still reports the phantom major as settling in every consumer's issue, and the ruleset remains the thing that stops it.
-  The rejection message explains none of this, so give scratch branches a name outside the pattern and let `release.yml` cut the real ones.
+  The rejection message explains none of this, so give scratch branches a name outside the pattern and let `self-release.yml` cut the real ones.
   Bootstrapping or restoring a `v*` branch by hand means temporarily relaxing the ruleset in `terraform-github`.
 - **Never force-push a `v*` branch** — consumers pin these branches, and a rewrite changes history under them.
   The ruleset now enforces this: the admin bypass is pull-request-scoped, so **no human can force-push `v*`**.
-  Only the release App holds an `always` bypass, and `release.yml` refuses any non-fast-forward move itself.
+  Only the release App holds an `always` bypass, and `self-release.yml` refuses any non-fast-forward move itself.
   A genuine last-resort recovery therefore means deliberately and temporarily relaxing the ruleset in `terraform-github` — never a quiet local `--force`.

@@ -58,7 +58,7 @@ It runs on the runner's system Python with no setup step.
   A repo that reflows stays reflowed.
 - Existing consumers are untouched until they add the caller — no behavioural change rides `@v2`, and the new workflow already follows both naming rules ([ADR-010](010-caller-job-ids-match-the-workflow-filename.md), [ADR-011](011-reusable-job-ids-are-the-check-name.md)): the caller job is `markdown-sembr`, the reusable job sets no `name:`, so the context is `markdown-sembr / sembr`.
 - The contract is small (`globs`, `ignore`, plus `<!-- sembr-* -->` suppression comments) and adds no secret or permission.
-- The action is exercised pre-merge exactly like `export-terraform-variables`: unit tests plus wiring smoke steps in [`action-tests.yml`](../../.github/workflows/action-tests.yml), and a consumer pinning a feature branch gets that branch's action ([ADR-009](009-composite-action-via-workflow-identity-checkout.md)).
+- The action is exercised pre-merge exactly like `export-terraform-variables`: unit tests plus wiring smoke steps in [`self-action-tests.yml`](../../.github/workflows/self-action-tests.yml), and a consumer pinning a feature branch gets that branch's action ([ADR-009](009-composite-action-via-workflow-identity-checkout.md)).
 - Opt-in *by adoption* is a property of the product, not a prediction about who adopts.
   Semantic line breaks are the standard for the repos `flungo` owns, so every one of them takes this caller and the context ends up required fleet-wide — while an outside repo can still take `markdown-lint.yml` and `markdown-links.yml` without inheriting a prose style.
   Requiring it everywhere we own is therefore consistent with this ADR rather than a departure from it.

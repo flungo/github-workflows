@@ -5,7 +5,7 @@
 
 ## Context
 
-Cutting a major is a single reviewed edit — `MAJOR_BRANCH` in `release.yml` ([ADR-003](003-version-via-moving-v1-branch.md)) — and the moment it merges, two things happen at once.
+Cutting a major is a single reviewed edit — `MAJOR_BRANCH` in `self-release.yml` ([ADR-003](003-version-via-moving-v1-branch.md)) — and the moment it merges, two things happen at once.
 The old major freezes, and every opted-in consumer's next [`version-check`](004-version-check-opt-in.md) run opens an issue telling that repository to migrate.
 
 The second is premature, because the first thing anyone learns about a new major's contract is learned by adopting it.
@@ -30,7 +30,7 @@ Those are two separate events, and only the first has to happen at the cut.
 **Cutting a major publishes it but leaves it *settling*.
 A second, manual edit promotes it to *stable*, and that is what starts prompting consumers.**
 
-`release.yml` gains a `STABLE_MAJOR` alongside `MAJOR_BRANCH`.
+`self-release.yml` gains a `STABLE_MAJOR` alongside `MAJOR_BRANCH`.
 Cutting bumps the first; promoting bumps the second; the gap between them is the settling state.
 While it is open, the new major may take further breaking changes **in place**, without cutting another — nobody has been asked to move onto it yet, so changing it costs nobody a migration.
 
@@ -81,7 +81,7 @@ Those are paid every day, to fix a confusion that exists only during settling wi
 
 A promotion that is forgotten is worse than a clock that expires: consumers sit on a frozen major and are never told, which is the exact failure ADR-004 exists to prevent.
 
-So `ci.yml` gains a **`release-state`** job that warns — an annotation, on a passing check — for as long as `MAJOR_BRANCH` and `STABLE_MAJOR` differ.
+So `self-ci.yml` gains a **`release-state`** job that warns — an annotation, on a passing check — for as long as `MAJOR_BRANCH` and `STABLE_MAJOR` differ.
 Every pull request merging onto a settling `main` carries the reminder, so the state has to be noticed rather than probed for.
 It is deliberately non-blocking, because settling is a legitimate state to merge onto and lasts as long as adopting the major takes.
 It *fails* only on a pair that cannot be right — a malformed value, or a stable major ahead of the cut one — which would misdirect every consumer's version check.
@@ -121,12 +121,12 @@ A long-lived branch also rots across exactly the multi-week pauses this reposito
 - **`main` is freed from carrying a migration-accurate copy of the docs.**
   While a major is settling, the one consumers are sent to is the major before it, frozen at the cut — so every link a migrating consumer follows resolves on content that has stopped moving.
   The pull requests that settle the new major can therefore rewrite the runbooks as they go, rather than each having to leave `main` readable by someone mid-upgrade.
-- No new credential or per-consumer configuration — one more line in `release.yml`, read from a public repository.
+- No new credential or per-consumer configuration — one more line in `self-release.yml`, read from a public repository.
 
 ### Negative — trade-offs
 
 - **The old major freezes at the cut, not at the promotion.**
-  `release.yml` stops advancing it the moment `MAJOR_BRANCH` changes, so a consumer stops receiving fixes before anything tells it so, for as long as settling lasts.
+  `self-release.yml` stops advancing it the moment `MAJOR_BRANCH` changes, so a consumer stops receiving fixes before anything tells it so, for as long as settling lasts.
   Keeping the old major advancing through the window would mean two branches tracking `main` with the breaking change on both, which defeats the cut.
   A fix that matters to the frozen major can still be backported ([`releasing.md` § Patching a frozen major](../runbooks/releasing.md#patching-a-frozen-major)); the accepted position is that promoting or cutting forward is usually the better use of the attention.
 - **A promotion can be forgotten, and the consequence is silence.**
@@ -135,8 +135,13 @@ A long-lived branch also rots across exactly the multi-week pauses this reposito
 - **A settling change is a breaking change with no version to distinguish it.**
   Two repositories can adopt the same major weeks apart and get materially different contracts, both called `vN`.
   Bounded by who adopts during settling — in practice the person settling it.
-- **`release.yml`'s path is now part of the consumer contract**, since a frozen consumer's check reads that file from `main` by name.
+- **The release workflow's path is now part of the consumer contract**, since a frozen consumer's check reads that file from `main` by name.
   The deferred `self-` prefix rename in `CLAUDE.md` would break every frozen consumer's read, which now falls back to treating the newest major as stable — so that rename needs the reader to tolerate both paths first.
+
+  **Amended 2026-09-21:** both halves have landed, in that order.
+  `version-check` now tries `self-release.yml` and then `release.yml`, and the file is renamed, so every unfrozen major reads the value as it did before.
+  A copy of the reader on a frozen major still reads the old path alone and finds nothing, so it falls back as described — harmlessly while the newest published major *is* the stable one, and by sending its repository at a settling major once one is cut.
+  That is the accepted degradation rather than a new one, it reaches nothing today (no repository pins `@v1`), and the old path stays in the reader's list so that no future rename repeats it.
 - **A new adopter who arrives at a runbook directly never sees the callout.**
   The README is the only place that says a major is settling, so a search result or a deep link bypasses the warning entirely — the pinned links help only someone who comes through the front page.
   Closing that gap would need the default-branch switch this rejects.

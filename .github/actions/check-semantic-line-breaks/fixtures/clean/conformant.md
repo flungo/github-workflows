@@ -6,7 +6,7 @@ title: A fixture whose frontmatter holds two sentences. Deliberately so.
 
 Every prose sentence here sits on its own line.
 The file is the green half of the action's wiring smoke test in
-`action-tests.yml`, and the target of this repo's own `markdown-sembr` job,
+`self-action-tests.yml`, and the target of this repo's own `markdown-sembr` job,
 so a regression that starts flagging valid prose fails CI rather than sitting
 unnoticed in a consumer.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Colocated tests for export.sh, run by this action's job in action-tests.yml
+# Colocated tests for export.sh, run by this action's job in self-action-tests.yml
 # (and runnable locally). Behaviour-level only: the action.yml input wiring is
 # exercised by the static `uses:` step in that job, which cannot be generated
 # per-action. Every value below is fake and exists only for the test.

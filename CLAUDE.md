@@ -11,7 +11,8 @@ Three families:
 
 ## Repo layout
 
-- `.github/workflows/*.yml` — the reusable workflows and this repo's own self-CI (`ci.yml`, `action-tests.yml`); `.github/actions/` — shared composite actions any of the reusable workflows can fetch at their own commit via `job.workflow_sha` ([ADR-009](docs/decisions/009-composite-action-via-workflow-identity-checkout.md)) — the Terraform family was the first consumer, `markdown-sembr.yml`, `flungo-workflows.yml` and `markdown-links.yml` followed; the pattern is not scoped to any of them.
+- `.github/workflows/*.yml` — the reusable workflows, plus this repo's own self-CI under a `self-` prefix (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`); an unprefixed file is one of the products and is therefore `workflow_call`-only, which `self-ci.yml`'s `workflow-scope` job enforces.
+  `.github/actions/` — shared composite actions any of the reusable workflows can fetch at their own commit via `job.workflow_sha` ([ADR-009](docs/decisions/009-composite-action-via-workflow-identity-checkout.md)) — the Terraform family was the first consumer, `markdown-sembr.yml`, `flungo-workflows.yml` and `markdown-links.yml` followed; the pattern is not scoped to any of them.
   `issue-upsert` and `pr-comment-upsert` are the cross-family pair: every workflow that keeps a single marked issue or pull request comment in sync with a condition places it through one of them, and [ADR-018](docs/decisions/018-one-upsert-action-per-resource.md) records why that is two actions rather than one with a `resource:` switch.
 - `docs/` follows the [Divio/Diátaxis](https://diataxis.fr/) split, matching the sibling repos — each subdirectory has a `README.md` index:
   - `reference/` — information-oriented lookup: `terraform-workflow.md` (the Terraform CI standard), `terraform-provider-workflow.md` (the provider CI standard) and `markdown-validation.md` (the Markdown workflows, for any repo, including what the semantic-line-break check deliberately does not flag).
@@ -30,11 +31,11 @@ Three families:
   Never hard-code a repo, workspace, or token here.
 - **Pin actions and version this repo.**
   Consumers pin `@v2` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)).
-  `release.yml` fast-forwards `v2` to `main` automatically on every merge, so fixes reach consumers with no bump step.
-  A **breaking** input/secret change must bump `MAJOR_BRANCH` in `release.yml` (`v2` → `v3`) in the same PR — that reviewed one-line edit is the whole major-version decision, and it freezes the old major.
+  `self-release.yml` fast-forwards `v2` to `main` automatically on every merge, so fixes reach consumers with no bump step.
+  A **breaking** input/secret change must bump `MAJOR_BRANCH` in `self-release.yml` (`v2` → `v3`) in the same PR — that reviewed one-line edit is the whole major-version decision, and it freezes the old major.
   It does **not** ask anyone to migrate: the cut leaves `STABLE_MAJOR` behind, and the new major *settles* — taking further breaking changes in place, with no consumer prompted onto it — until a second, manual bump of `STABLE_MAJOR` promotes it ([ADR-014](docs/decisions/014-promote-a-major-to-stable-by-hand.md)).
-  So cut early and settle the contract by adopting it across the fleet; `ci.yml`'s `release-state` job warns on every PR while the two values differ, and the adoption docs are bumped by the promotion, not the cut.
-  Never create a `vN` tag (`@vN` would then be ambiguous), and never push a `v*` branch directly — it moves only via `release.yml` or a PR that targets it.
+  So cut early and settle the contract by adopting it across the fleet; `self-ci.yml`'s `release-state` job warns on every PR while the two values differ, and the adoption docs are bumped by the promotion, not the cut.
+  Never create a `vN` tag (`@vN` would then be ambiguous), and never push a `v*` branch directly — it moves only via `self-release.yml` or a PR that targets it.
   The whole `v[0-9]*` namespace is **create-restricted** to the release App, so never name a working branch `v3`, `v2x` or similar: the push is rejected, and the message won't say why.
   See [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md); any change to inputs/secrets is a change to the contract — update the relevant adopting runbook and the consumers.
 - **Every consumer adopts `flungo-workflows`.**
@@ -45,7 +46,7 @@ Three families:
   Job ids are short, kebab-case, and name the role within the workflow — the filename already carries the family, so don't repeat it (`markdown-links.yml`'s jobs are `internal` and `external`).
   Adding a `name:` to a reusable job silently renames a check and breaks any branch protection requiring it.
 - **Validate before it reaches `main`.**
-  `ci.yml` runs actionlint and the repo's own Markdown checks on every PR; `action-tests.yml` gives every composite action its own isolated test job (colocated `test.sh` + a wiring smoke step, with a `coverage` guard so a new action can't land untested).
+  `self-ci.yml` runs actionlint, the `workflow-scope` prefix guard and the repo's own Markdown checks on every PR; `self-action-tests.yml` gives every composite action its own isolated test job (colocated `test.sh` + a wiring smoke step, with a `coverage` guard so a new action can't land untested).
   The merge that passes them is what advances `v2`; a workflow change is not done until CI is green.
 - **Git conventions** are the fleet standard, carried by the `git-conventions` plugin this repo enables: Conventional Commits, linear history, squash-vs-rebase, no fixup commits left on a branch, PR-only landing.
   Never commit directly to `main`; work on a feature branch and land via PR.
@@ -68,13 +69,13 @@ State what is true now: what changed, and what it replaced, belong in the commit
 ## Deferred follow-ups
 
 Improvements intentionally not done yet.
-The three major-shaping items from the #23 review are now scoped in **[`docs/plans/v3-cut.md`](docs/plans/v3-cut.md)** — the plan is the source of truth for what rides the v3 cut (v2 was claimed by the ADR-010/011/012 naming changes), the pre-cut work on the current major, and each consumer's migration path:
+Two of the three major-shaping items from the #23 review are still open, and all three are scoped in **[`docs/plans/v3-cut.md`](docs/plans/v3-cut.md)** — the plan is the source of truth for what rides the v3 cut (v2 was claimed by the ADR-010/011/012 naming changes), the pre-cut work on the current major, and each consumer's migration path:
 
 - **Deprecate `tf-var-name` + `provider_token`** — deprecate-first: a current-major `::warning::` lands pre-cut, removal rides v3 (plan § scope item 1).
 - **Consistent input naming** — kebab-case inputs, `UPPER_SNAKE_CASE` secrets; the renames ride v3 (plan § scope item 2).
-- **Separate the products from the self-CI more visibly** — the `self-` prefix (`self-ci.yml`, `self-action-tests.yml`, `self-release.yml`) plus the unprefixed-means-`workflow_call`-only guard is non-breaking and lands *ahead of* the cut (plan § pre-cut work).
-  `release.yml` is the exception to "non-breaking, any time": every consumer's `version-check` reads `STABLE_MAJOR` out of it by path from `main` ([ADR-014](docs/decisions/014-promote-a-major-to-stable-by-hand.md)), and a consumer frozen on an older major runs that major's copy of the reader — so make the reader tolerate both paths, ship that, and only then rename.
-  Renaming the products themselves (GitHub's `reusable-*` docs style) was reconsidered and re-rejected (plan § considered and rejected) — ADR-012's one-file `flungo-workflows.yml` rename is the recorded, forced exception.
+
+The third — separating the products from the self-CI more visibly — is **done**: the `self-` prefix and the unprefixed-means-`workflow_call`-only guard landed pre-cut, behind a `version-check` reader that tolerates both release-workflow paths ([ADR-014](docs/decisions/014-promote-a-major-to-stable-by-hand.md), amended).
+Renaming the products themselves (GitHub's `reusable-*` docs style) was reconsidered and re-rejected (plan § considered and rejected) — ADR-012's one-file `flungo-workflows.yml` rename is the recorded, forced exception.
 
 ## Active work
 
@@ -88,7 +89,7 @@ A local Claude Code session loads them; a **web session does not load a repo's a
 
 Run the Markdown checks locally before pushing, or you chase findings CI never raises and miss ones it does.
 `markdown-standards` covers how, including where the linter version comes from: a recent `markdown-lint` job's log, never a version written down in a file.
-This repo dogfoods its own workflows, so its `ci.yml` runs carry that job.
+This repo dogfoods its own workflows, so its `self-ci.yml` runs carry that job.
 
 Its prose follows semantic line breaks — a `markdown-standards` prose convention — and `markdown-sembr.yml` enforces the MUST rule against this repo itself, so keep one sentence per source line in any Markdown you touch.
 

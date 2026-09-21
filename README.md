@@ -4,8 +4,8 @@ Reusable GitHub Actions workflows and shared CI standards for `flungo`'s reposit
 Instead of each repo copy-pasting (and silently drifting) its CI, repos call these reusable workflows and pin the moving `@v2` branch.
 Fix or improve a workflow once here; merging to `main` advances `v2` automatically and every consumer follows.
 
-<!-- While MAJOR_BRANCH and STABLE_MAJOR differ in release.yml, a settling callout belongs here,
-     between settling:start and settling:end markers. ci.yml's release-state job checks that it is
+<!-- While MAJOR_BRANCH and STABLE_MAJOR differ in self-release.yml, a settling callout belongs here,
+     between settling:start and settling:end markers. self-ci.yml's release-state job checks that it is
      present exactly while that is true. Template and rationale:
      docs/runbooks/releasing.md#the-settling-period -->
 
@@ -60,6 +60,6 @@ A runbook hands you a caller to copy, and GitHub resolves its onward links again
 ## Versioning
 
 Consumers pin `@v2` — a moving **branch**, not a tag ([ADR-003](docs/decisions/003-version-via-moving-v1-branch.md)).
-Every merge to `main` runs [`release.yml`](.github/workflows/release.yml), which fast-forwards `v2` to `main`, so consumers following `@v2` pick fixes up automatically.
+Every merge to `main` runs [`self-release.yml`](.github/workflows/self-release.yml), which fast-forwards `v2` to `main`, so consumers following `@v2` pick fixes up automatically.
 A breaking change cuts a new major branch (`v3`) by bumping `MAJOR_BRANCH` in that workflow — see [`docs/runbooks/releasing.md`](docs/runbooks/releasing.md).
-This repo's own workflows and docs are validated on every PR by [`ci.yml`](.github/workflows/ci.yml) (actionlint plus the repo's own Markdown workflows).
+This repo's own workflows and docs are validated on every PR by [`self-ci.yml`](.github/workflows/self-ci.yml) (actionlint plus the repo's own Markdown workflows).

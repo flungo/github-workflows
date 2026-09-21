@@ -22,7 +22,7 @@ For the Markdown workflows (which any repo can also adopt), see [`adopting-markd
 | `plan-artifact-name` | `terraform-plan` | Name the plan (`plan.jsonl`, `plan.txt`) is uploaded under, for follow-on jobs to consume |
 | `tf-var-name` | `''` | **Deprecated**, removed in `v3` ([below](#the-provider-token-pair-is-deprecated)) — env var name for the provider token, e.g. `TF_VAR_github_token` |
 | `tf_vars` | `''` | JSON map `{"<var>":"<value>"}` of extra *non-secret* vars (string values), each exported as an unmasked `TF_VAR_<var>` — secrets go in the `tf_secret_vars` secret instead |
-| `operation` | `plan` | Pass through the caller's `workflow_dispatch` operation |
+| `operation` | `plan` | Pass through the caller's `workflow_dispatch` operation — `plan` or `apply` (empty means `plan`); any other value fails the run |
 
 ### Secrets
 

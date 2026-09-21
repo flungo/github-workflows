@@ -305,7 +305,7 @@ Pre-cut (gates the cut):
 - [x] Deprecation warning in `export.sh`
 - [x] `terraform-version` wired in both provider workflows
 - [ ] `STABLE_MAJOR` reader tolerates both `release.yml` paths, then the `self-` renames + unprefixed-means-`workflow_call`-only guard
-- [ ] Fail-loud `operation` fix
+- [x] Fail-loud `operation` fix
 - [x] #38 upsert extraction — `issue-upsert` + `pr-comment-upsert` per [ADR-018](../decisions/018-one-upsert-action-per-resource.md), all four call sites migrated
 
 Cut and settle:

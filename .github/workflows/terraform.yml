@@ -54,7 +54,11 @@ on:
         type: string
         default: ''
       operation:
-        description: Pass-through of the caller's workflow_dispatch operation input (plan or apply).
+        description: >-
+          Pass-through of the caller's workflow_dispatch operation input: plan
+          or apply. Empty means plan (the events that are not
+          workflow_dispatch render a caller's pass-through expression that
+          way); any other value fails the run rather than planning.
         type: string
         default: plan
     secrets:
@@ -91,6 +95,26 @@ jobs:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
       TF_INPUT: "false"
     steps:
+      # Any value other than `apply` used to fall through to a plan, so a
+      # typo'd dispatch (`aply`) reported success having done something other
+      # than what was asked — and on a push it applied, since that arm never
+      # reads the operation. Reject it here, before the checkout, the init and
+      # the plan: ADR-008's fail-at-the-point-of-error, applied to this input.
+      # An empty value is not a typo but the shape of the caller's own
+      # expression on an event that carries no dispatch inputs, so it means the
+      # documented default.
+      - name: Check the operation input
+        env:
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          case "$OPERATION" in
+            ''|plan|apply) ;;
+            *)
+              echo "::error::operation must be 'plan' or 'apply' (got '$OPERATION')"
+              exit 1
+              ;;
+          esac
+
       - uses: actions/checkout@v7
 
       # This repo's composite actions can't be referenced by a local `./` path

@@ -303,7 +303,7 @@ Pre-cut (gates the cut):
 
 - [x] This plan merged (#27)
 - [x] Deprecation warning in `export.sh`
-- [ ] `terraform-version` wired in both provider workflows
+- [x] `terraform-version` wired in both provider workflows
 - [ ] `STABLE_MAJOR` reader tolerates both `release.yml` paths, then the `self-` renames + unprefixed-means-`workflow_call`-only guard
 - [ ] Fail-loud `operation` fix
 - [x] #38 upsert extraction — `issue-upsert` + `pr-comment-upsert` per [ADR-018](../decisions/018-one-upsert-action-per-resource.md), all four call sites migrated

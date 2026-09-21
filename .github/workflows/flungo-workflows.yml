@@ -12,7 +12,8 @@
 # CONSUMER's own repo.
 #
 # Stable, not newest: cutting a major publishes it while its contract is still
-# settling, and STABLE_MAJOR (declared in release.yml on main) is bumped by hand
+# settling, and STABLE_MAJOR (declared in the release workflow on main, read
+# there under either of its names) is bumped by hand
 # once adopting it has proved that contract. Until then consumers are left on
 # the previous major and told nothing. See ADR-014.
 #
@@ -108,20 +109,36 @@ jobs:
             //    is what this job did before the state existed. A prompt that
             //    comes early costs a week of premature attention; one that never
             //    comes is the silent drift ADR-004 exists to catch.
+            //    The value is read by path, and the release workflow is due to
+            //    be renamed to self-release.yml (docs/plans/v3-cut.md § Pre-cut
+            //    work item 4). A copy of this job pinned to a frozen major can
+            //    never learn a new path, so both names are tried — the newer
+            //    one first — and only "neither carries the value" counts as
+            //    unreadable.
             let target = latest;
-            try {
-              const { data } = await github.rest.repos.getContent({
-                owner: pOwner, repo: pRepo, path: '.github/workflows/release.yml', ref: 'main',
-              });
-              const text = Buffer.from(data.content || '', data.encoding || 'base64').toString('utf8');
-              const declared = /^\s*STABLE_MAJOR:\s*v(\d+)\s*$/m.exec(text);
-              if (declared) {
-                target = Math.min(parseInt(declared[1], 10), latest);
-              } else {
-                core.warning(`No STABLE_MAJOR declared in ${pOwner}/${pRepo}; treating v${latest} as stable.`);
+            const releasePaths = [
+              '.github/workflows/self-release.yml',
+              '.github/workflows/release.yml',
+            ];
+            let declared = null;
+            const misses = [];
+            for (const path of releasePaths) {
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  owner: pOwner, repo: pRepo, path, ref: 'main',
+                });
+                const text = Buffer.from(data.content || '', data.encoding || 'base64').toString('utf8');
+                declared = /^\s*STABLE_MAJOR:\s*v(\d+)\s*$/m.exec(text);
+                if (declared) break;
+                misses.push(`${path} declares no STABLE_MAJOR`);
+              } catch (e) {
+                misses.push(`${path}: ${e.message}`);
               }
-            } catch (e) {
-              core.warning(`Could not read the release state from ${pOwner}/${pRepo} (${e.message}); treating v${latest} as stable.`);
+            }
+            if (declared) {
+              target = Math.min(parseInt(declared[1], 10), latest);
+            } else {
+              core.warning(`Could not read the stable major from ${pOwner}/${pRepo} (${misses.join('; ')}); treating v${latest} as stable.`);
             }
             if (target < latest) {
               core.notice(`v${latest} is published but still settling; checking against the stable major, v${target}.`);

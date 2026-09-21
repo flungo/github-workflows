@@ -20,7 +20,7 @@ For the Markdown workflows (which any repo can also adopt), see [`adopting-markd
 | `concurrency-group` | `terraform` | Share with the drift caller so plan/apply and drift never overlap |
 | `plan-comment-marker` | `<!-- terraform-plan -->` | Hidden marker keying this repo's upserted plan comment |
 | `plan-artifact-name` | `terraform-plan` | Name the plan (`plan.jsonl`, `plan.txt`) is uploaded under, for follow-on jobs to consume |
-| `tf-var-name` | `''` | Env var name for the provider token, e.g. `TF_VAR_github_token` |
+| `tf-var-name` | `''` | **Deprecated**, removed in `v3` ([below](#the-provider-token-pair-is-deprecated)) — env var name for the provider token, e.g. `TF_VAR_github_token` |
 | `tf_vars` | `''` | JSON map `{"<var>":"<value>"}` of extra *non-secret* vars (string values), each exported as an unmasked `TF_VAR_<var>` — secrets go in the `tf_secret_vars` secret instead |
 | `operation` | `plan` | Pass through the caller's `workflow_dispatch` operation |
 
@@ -29,7 +29,7 @@ For the Markdown workflows (which any repo can also adopt), see [`adopting-markd
 | Secret | Required | Purpose |
 | --- | --- | --- |
 | `TF_TOKEN_APP_TERRAFORM_IO` | yes | HCP state backend |
-| `provider_token` | no | Provider credential, exported as `${tf-var-name}` |
+| `provider_token` | no | **Deprecated**, removed in `v3` ([below](#the-provider-token-pair-is-deprecated)) — provider credential, exported as `${tf-var-name}` |
 | `tf_secret_vars` | no | JSON map `{"<var>":"<value>"}` of extra *secret* vars (string values), each exported as a masked `TF_VAR_<var>`; declare the consuming variable `sensitive` |
 
 ### Caller
@@ -93,6 +93,24 @@ To pass **extra non-secret variables** — configuration knobs the repo would ot
 Each entry is exported as an unmasked `TF_VAR_<key>`.
 An input is plainly visible in the run, so a secret never belongs here — that's what `tf_secret_vars` is for, and the two paths are kept distinct on purpose.
 Setting the same variable through more than one path (`tf_vars`, `tf_secret_vars`, `tf-var-name`) fails the export loudly rather than silently letting one win.
+
+### The provider-token pair is deprecated
+
+`tf-var-name` and `provider_token` still work on `@v2`, and every run that sets `tf-var-name` logs a warning saying they are removed in `v3`.
+They predate `tf_secret_vars` and are strictly worse than it: a provider token is one more secret value, `tf-var-name` takes the *full* env var name where a `tf_secret_vars` key is the bare one, and this path masks the credential as a single string — so a multi-line one is printed in the clear from its second line — and skips the empty-value and variable-name checks the map gets.
+
+Move the token into the map, keyed by the bare variable name, and drop both `tf-var-name` and `provider_token`:
+
+```yaml
+    secrets:
+      TF_TOKEN_APP_TERRAFORM_IO: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+      tf_secret_vars: >-
+        {"github_token": ${{ toJSON(secrets.FLUNGO_GITHUB_TOKEN) }}}
+```
+
+The exported env var (`TF_VAR_github_token`) is byte-identical to what the pair produced, so no `*.tf` change is needed — only the transport moves, and the token stays outside Terraform's own management either way.
+A `terraform-drift.yml` caller moves the same way.
+[`v3-cut.md`](../plans/v3-cut.md) § 1 carries the reasoning and the migration for each consumer.
 
 ### Consuming the plan artifact (follow-on jobs)
 

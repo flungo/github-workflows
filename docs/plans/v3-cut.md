@@ -302,7 +302,7 @@ Per [releasing.md](../runbooks/releasing.md) and [ADR-014](../decisions/014-prom
 Pre-cut (gates the cut):
 
 - [x] This plan merged (#27)
-- [ ] Deprecation warning in `export.sh`
+- [x] Deprecation warning in `export.sh`
 - [ ] `terraform-version` wired in both provider workflows
 - [ ] `STABLE_MAJOR` reader tolerates both `release.yml` paths, then the `self-` renames + unprefixed-means-`workflow_call`-only guard
 - [ ] Fail-loud `operation` fix

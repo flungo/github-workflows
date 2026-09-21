@@ -47,6 +47,31 @@ rm -f "$envfile"
 # Nothing provided is a no-op, not an error.
 expect_success "no inputs" GITHUB_ENV=/dev/null VAR_NAME= PROVIDER_TOKEN=
 
+# The deprecated provider-token pair warns in every run until v3 removes it, and
+# the warning has to be actionable on its own: the bare tf_secret_vars key to
+# move to, and where the migration is written down.
+assert_warning() {
+  local desc=$1 needle=$2 output=$3
+  case "$output" in
+    *"$needle"*) ;;
+    *) echo "::error::the deprecation warning should name $desc"; exit 1 ;;
+  esac
+}
+deprecated_out="$(env GITHUB_ENV=/dev/null \
+  VAR_NAME=TF_VAR_provider_credential PROVIDER_TOKEN=fake-provider-credential "$script")"
+assert_warning "itself as a warning"     '::warning'             "$deprecated_out"
+assert_warning "the deprecated input"    'tf-var-name'           "$deprecated_out"
+assert_warning "the replacement secret"  'tf_secret_vars'        "$deprecated_out"
+assert_warning "the bare key to move to" "'provider_credential'" "$deprecated_out"
+assert_warning "where the migration is"  'docs/plans/v3-cut.md'  "$deprecated_out"
+
+# The path that replaces it is not deprecated, so it says nothing.
+supported_out="$(env GITHUB_ENV=/dev/null VAR_NAME= PROVIDER_TOKEN= \
+  TF_SECRET_VARS_JSON='{"db_password": "fake-password"}' "$script")"
+case "$supported_out" in
+  *'::warning'*) echo "::error::the tf_secret_vars path should not warn"; exit 1 ;;
+esac
+
 # Fail-loud paths.
 expect_failure "invalid tf_secret_vars JSON" TF_SECRET_VARS_JSON='not json'
 expect_failure "non-variable key"            TF_SECRET_VARS_JSON='{"bad-key": "fake-value"}'

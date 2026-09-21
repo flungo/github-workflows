@@ -20,6 +20,9 @@ This is why credentials live in GitHub Actions secrets, not HCP workspace variab
 | `terraform.yml` | `workflow_dispatch` (`plan`/`apply`) | on-demand plan or apply |
 | [`terraform-drift.yml`](../../.github/workflows/terraform-drift.yml) | daily `schedule` (on the caller) | apply the default branch to remediate drift; open/close a `drift` issue |
 
+The `operation` input takes `plan` or `apply` and nothing else: any other value fails the run at its first step, rather than falling through to a plan and reporting success for something other than what was asked.
+An empty value is the exception, and means `plan` — that is how a caller's `github.event.inputs.operation || 'plan'` pass-through renders on the events that carry no dispatch inputs.
+
 The PR plan comment is upserted (found and updated via a hidden marker), so a PR carries a single, current plan rather than a growing stack of comments.
 `fmt` and `validate` outcomes are surfaced in the comment's table; a `fmt` failure is reported but does not fail the run.
 

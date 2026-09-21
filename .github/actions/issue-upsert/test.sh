@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Colocated tests for this action, run by its job in action-tests.yml (and
+# Colocated tests for this action, run by its job in self-action-tests.yml (and
 # runnable locally). Two layers:
 #
 #   1. test_upsert.js — the unit tests for the upsert itself, driven against a
 #      fake GitHub client: create, update in place, close-when-clear, the
 #      >100-open-issues pagination case and the rejections. That is where the
 #      confidence lives, because every one of those paths writes an issue into
-#      a repository — so the `uses:` smoke step in action-tests.yml can only
+#      a repository — so the `uses:` smoke step in self-action-tests.yml can only
 #      take the one path that writes nothing.
 #   2. A wiring check over action.yml: every declared input is mapped into the
 #      step, so an input cannot be documented and then silently ignored.

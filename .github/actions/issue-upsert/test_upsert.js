@@ -1,7 +1,7 @@
 // Unit tests for upsert.js, run by test.sh (and so by this action's job in
-// action-tests.yml). They drive the action against a fake GitHub client, which
+// self-action-tests.yml). They drive the action against a fake GitHub client, which
 // is the only way to exercise what it does: every path here writes an issue
-// into a repository, so the `uses:` smoke step in action-tests.yml can only
+// into a repository, so the `uses:` smoke step in self-action-tests.yml can only
 // take the one path that writes nothing.
 //
 // The fake's `paginate` walks pages the way octokit does — until a short page

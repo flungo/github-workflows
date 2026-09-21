@@ -271,9 +271,9 @@ jobs:
           for dir in .github/actions/*/; do
             name="$(basename "$dir")"
             [ -x "$dir/test.sh" ] || missing="$missing $name(test.sh)"
-            grep -q "^  $name:" .github/workflows/action-tests.yml || missing="$missing $name(job)"
+            grep -q "^  $name:" .github/workflows/self-action-tests.yml || missing="$missing $name(job)"
           done
           if [ -n "$missing" ]; then
-            echo "::error::composite actions missing tests:$missing — every action ships an executable test.sh and an isolated job in action-tests.yml"
+            echo "::error::composite actions missing tests:$missing — every action ships an executable test.sh and an isolated job in self-action-tests.yml"
             exit 1
           fi

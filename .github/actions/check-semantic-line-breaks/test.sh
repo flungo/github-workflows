@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Colocated tests for this action, run by its job in action-tests.yml (and
+# Colocated tests for this action, run by its job in self-action-tests.yml (and
 # runnable locally). Two layers:
 #
 #   1. test_sembr_check.py — the unit tests for the checker itself: what it

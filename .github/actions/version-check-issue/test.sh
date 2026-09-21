@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Colocated tests for build.sh, run by this action's job in action-tests.yml
+# Colocated tests for build.sh, run by this action's job in self-action-tests.yml
 # (and runnable locally). Behaviour-level only: the action.yml input wiring is
 # exercised by the static `uses:` step in that job.
 #

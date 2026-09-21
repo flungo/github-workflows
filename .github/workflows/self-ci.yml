@@ -1,8 +1,11 @@
 # Self-CI for this repository: lint the reusable workflows with actionlint,
-# dogfood the repo's own reusable Markdown workflows against its docs, and
-# report the release state (whether a cut major is still settling). The
-# composite actions are tested separately, one isolated job per action, in
-# action-tests.yml.
+# hold the self- prefix convention, dogfood the repo's own reusable Markdown
+# workflows against its docs, and report the release state (whether a cut major
+# is still settling). The composite actions are tested separately, one isolated
+# job per action, in self-action-tests.yml.
+#
+# This file is prefixed because it is this repository's own CI rather than one
+# of the products — the distinction the workflow-scope job below enforces.
 name: CI
 
 on:
@@ -28,6 +31,45 @@ jobs:
         with:
           args: -color
 
+  workflow-scope:
+    # The products are reusable workflows and nothing else. An unprefixed file
+    # in .github/workflows/ is therefore callable only through workflow_call,
+    # and anything this repository runs for itself carries the self- prefix.
+    #
+    # Guarded rather than left to habit because the two failures are quiet. A
+    # product that picks up a `pull_request:` starts running here on every pull
+    # request with none of a caller's inputs, and a self-CI workflow left
+    # unprefixed reads as a product a consumer may call. The prefix is the
+    # visible half of the separation; this job is the half that cannot be
+    # forgotten.
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Every unprefixed workflow is workflow_call-only
+        run: |
+          set -euo pipefail
+          status=0
+          for file in .github/workflows/*.y*ml; do
+            name="$(basename "$file")"
+            case "$name" in self-*) continue ;; esac
+            # The triggers are the keys of the `on:` block: the lines indented
+            # under it, up to the next top-level key. An `on:` this cannot read
+            # — an inline `on: [push]`, or none at all — reports empty and
+            # fails, because a trigger set nothing here can check is not one to
+            # take on trust.
+            triggers="$(awk '
+              /^on:/                      { inside = 1; next }
+              inside && /^[^[:space:]#]/  { inside = 0 }
+              inside && /^  [A-Za-z_]+:/  { sub(/:.*/, ""); gsub(/ /, ""); print }
+            ' "$file" | sort -u | paste -sd, -)"
+            if [ "$triggers" != workflow_call ]; then
+              echo "::error file=$file::$name is unprefixed, so it is one of the products and must be workflow_call-only; its triggers read '${triggers:-none this job can parse}'. If it is this repository's own CI, rename it self-$name."
+              status=1
+            fi
+          done
+          exit "$status"
+
   release-state:
     # Surfaces a major that is cut but still settling (MAJOR_BRANCH ahead of
     # STABLE_MAJOR — ADR-014), so the divergence is visible on every pull
@@ -45,7 +87,7 @@ jobs:
       - name: Compare the cut major with the stable one
         run: |
           set -euo pipefail
-          file=.github/workflows/release.yml
+          file=.github/workflows/self-release.yml
           readme=README.md
           runbook=docs/runbooks/releasing.md#the-settling-period
 
@@ -121,7 +163,7 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     uses: ./.github/workflows/markdown-sembr.yml
     with:
-      # The violating fixture exists to be flagged — action-tests.yml asserts
+      # The violating fixture exists to be flagged — self-action-tests.yml asserts
       # the check fails on it — so it is the one file the repo's own run must
       # skip. Its sibling under fixtures/clean/ stays in scope, and dogfooding
       # `ignore` is worth more than a `<!-- sembr-disable-file -->` comment

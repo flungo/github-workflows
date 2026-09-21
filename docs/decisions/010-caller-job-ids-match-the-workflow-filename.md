@@ -31,11 +31,11 @@ A repository with a Go linter, a Markdown linter and an `actionlint` run has thr
 
 This came to a head when [`terraform-github`](https://github.com/flungo/terraform-github) began *requiring* these contexts.
 Its `markdown` flag hardcodes the strings a conforming repository must report, which promotes the caller job ID from a local style choice to part of a cross-repository contract.
-The first consequence was immediate: this repository dogfoods both Markdown workflows from `./` inside a combined `ci.yml`, where the caller jobs sit beside `actionlint` and could not sensibly be called `lint` and `links`, so they were named `markdown-lint` and `markdown-links` — and the repository that *defines* the standard therefore did not match the standard's own example.
+The first consequence was immediate: this repository dogfoods both Markdown workflows from `./` inside a combined `self-ci.yml`, where the caller jobs sit beside `actionlint` and could not sensibly be called `lint` and `links`, so they were named `markdown-lint` and `markdown-links` — and the repository that *defines* the standard therefore did not match the standard's own example.
 
 The initial answer was to let it not match and reconcile with an exclusion list on the `terraform-github` side.
 That treats the symptom.
-The names in `ci.yml` were not an exception; they were right, and the runbook's examples were wrong.
+The names in `self-ci.yml` were not an exception; they were right, and the runbook's examples were wrong.
 
 ## Decision
 
@@ -105,7 +105,7 @@ They are renamed before `terraform-github` requires the new strings.
 - A caller job ID can no longer collide with an adopter's own jobs, so adopting a second family — or having a `lint` of one's own — needs no renaming.
 - The exclusion mechanism on the `terraform-github` side stops being needed for a naming mismatch.
   It remains for its real case: a repository that genuinely cannot *run* a check.
-- This repository's own `ci.yml` becomes conformant rather than an exception, so the standard is dogfooded rather than merely published.
+- This repository's own `self-ci.yml` becomes conformant rather than an exception, so the standard is dogfooded rather than merely published.
 
 ### Negative — trade-offs
 

@@ -14,7 +14,7 @@ The question the issue left open is where the shared unit's boundary falls: does
 
 ## Decision
 
-Extract the pattern **twice, once per resource**: `issue-upsert` and `pr-comment-upsert`, each a composite action with its own colocated tests and job in `action-tests.yml`.
+Extract the pattern **twice, once per resource**: `issue-upsert` and `pr-comment-upsert`, each a composite action with its own colocated tests and job in `self-action-tests.yml`.
 
 Two separate questions, answered separately.
 
@@ -43,7 +43,7 @@ The pair is deliberately symmetric where the resources allow: both take a `marke
 They differ only where the resources do — `closed` against `deleted`, an issue's title and label against a comment's pull request number.
 
 `pr-comment-upsert`'s `absent` path has no caller today.
-It earns its place twice over: it is what makes the pair symmetric for the next caller, and it is the only path that writes nothing, which is what lets `action-tests.yml` exercise the action's wiring against a live token without commenting on the pull request under test.
+It earns its place twice over: it is what makes the pair symmetric for the next caller, and it is the only path that writes nothing, which is what lets `self-action-tests.yml` exercise the action's wiring against a live token without commenting on the pull request under test.
 
 ### What stays duplicated
 
@@ -54,7 +54,7 @@ Hoisting it would mean a shared directory under `.github/actions/`, where the `c
 
 ### Positive
 
-- Pagination, marker matching and the exclusion of pull requests from an issue listing are one implementation's problem per resource, unit-tested against a fake client: create, update in place, retire-when-clear, the past-the-first-page case and the rejections all run in `action-tests.yml`, where previously none of them ran anywhere.
+- Pagination, marker matching and the exclusion of pull requests from an issue listing are one implementation's problem per resource, unit-tested against a fake client: create, update in place, retire-when-clear, the past-the-first-page case and the rejections all run in `self-action-tests.yml`, where previously none of them ran anywhere.
   Every path writes into the repository it runs in, so those tests are the only place that coverage could live.
 - The four callers keep no copy of any of it, and a fifth has two actions to choose between rather than a pattern to reimplement.
 - Every input on each action is live for every caller: neither carries a field that is meaningless for the resource it was given.

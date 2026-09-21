@@ -32,7 +32,7 @@ This is GitHub's documented pattern for a reusable workflow that needs files co-
 The action is exercised pre-merge two ways — the capability whose absence deferred the extraction:
 
 - **Per-action self-CI.**
-  Every composite action ships a colocated `test.sh` covering its behaviour (happy path and rejection cases), run as that action's own isolated job in [`action-tests.yml`](../../.github/workflows/action-tests.yml) together with a static wiring smoke step proving `action.yml` maps its inputs (a `uses:` reference cannot be templated, so each action adds one job following the same pattern; the local `./` reference is valid there, where the checkout *is* this repo).
+  Every composite action ships a colocated `test.sh` covering its behaviour (happy path and rejection cases), run as that action's own isolated job in [`self-action-tests.yml`](../../.github/workflows/self-action-tests.yml) together with a static wiring smoke step proving `action.yml` maps its inputs (a `uses:` reference cannot be templated, so each action adds one job following the same pattern; the local `./` reference is valid there, where the checkout *is* this repo).
   A `coverage` job fails when an action directory lacks an executable `test.sh` or a job in that file, so a new action cannot land untested.
   A PR touching an action fails its own CI before it can advance `v1`.
 - **Consumer feature-branch runs.**

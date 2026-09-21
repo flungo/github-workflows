@@ -22,6 +22,13 @@ record() { # $1 = env var name, $2 = source label
 }
 
 if [ -n "$VAR_NAME" ]; then
+  # The provider-token pair is deprecated and goes away in v3 (see
+  # docs/plans/v3-cut.md): a provider token is one more secret variable, and
+  # tf_secret_vars masks per line and validates what this path exports
+  # unchecked. Warned here rather than in either workflow so both carry it, and
+  # in every run rather than once, so a consumer left behind the cut keeps
+  # reading the pointer in its own logs.
+  echo "::warning title=tf-var-name is deprecated::tf-var-name and provider_token are removed in v3. Move the token into the tf_secret_vars secret, keyed by the bare variable name ('${VAR_NAME#TF_VAR_}'), which exports the identical $VAR_NAME — masked per line and validated. See docs/plans/v3-cut.md, scope item 1 (Remove tf-var-name + provider_token)."
   record "$VAR_NAME" tf-var-name
   echo "::add-mask::$PROVIDER_TOKEN"
   echo "$VAR_NAME=$PROVIDER_TOKEN" >> "$GITHUB_ENV"

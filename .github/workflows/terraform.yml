@@ -139,9 +139,16 @@ jobs:
           secret-vars: ${{ secrets.tf_secret_vars }}
           vars: ${{ inputs.tf_vars }}
 
+      # No wrapper: it exists to expose a terraform call's stdout/stderr/exit
+      # code as step outputs, which nothing here reads — the plan is read back
+      # from plan.jsonl and plan.txt, and step outcomes come from the steps
+      # themselves. Installing it would capture every plan into a step output
+      # nobody consumes, and it reports a `-detailed-exitcode` 2 as its own
+      # exit 0, which is the trap terraform-drift.yml avoids by the same line.
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ inputs.terraform-version }}
+          terraform_wrapper: false
 
       - name: Init
         working-directory: ${{ inputs.working-directory }}

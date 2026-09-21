@@ -122,10 +122,17 @@ jobs:
           secret-vars: ${{ secrets.tf_secret_vars }}
           vars: ${{ inputs.tf_vars }}
 
+      # No wrapper, and here it is load-bearing. The wrapper treats a
+      # `-detailed-exitcode` 2 as success and exits 0 itself, so the Plan step's
+      # own `$?` capture below would read 0 — no drift — on exactly the runs
+      # that found some, while the wrapper wrote its own competing `exitcode`
+      # output for the same key. Without it, terraform's exit code reaches the
+      # step directly and there is one writer.
       - uses: hashicorp/setup-terraform@v4
         if: steps.pause.outputs.paused != 'true'
         with:
           terraform_version: ${{ inputs.terraform-version }}
+          terraform_wrapper: false
 
       - name: Init
         if: steps.pause.outputs.paused != 'true'

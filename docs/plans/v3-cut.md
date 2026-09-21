@@ -176,7 +176,10 @@ What has shipped is tracked in one place, the [completion checklist](#completion
 6. **Done — [#38](https://github.com/flungo/github-workflows/issues/38): extract the marker-based upserts into composite actions** (delegated to its own session 2026-09-18, landed 2026-09-19).
    [ADR-018](../decisions/018-one-upsert-action-per-resource.md) resolved the question this plan left open — one action per resource, `issue-upsert` and `pr-comment-upsert`, not one shared action — and the migration covered everything this item subsumed: the missing pagination in `terraform.yml`'s plan-comment upsert and `markdown-links.yml`'s issue listing, and `terraform-drift.yml`'s two near-identical issue scripts.
    It also aligned the plan-truncation limits (both now 60 000), retiring that half of the sweep below.
-7. **Internal consistency sweep** (non-contract; the one pre-cut item that does *not* gate the cut): settle `setup-terraform`'s wrapper — enabled by default in the Terraform family, explicitly `terraform_wrapper: false` in the provider family — on one deliberate choice.
+7. **Done — internal consistency sweep** (non-contract; the one pre-cut item that did *not* gate the cut): `setup-terraform`'s wrapper is off in every family, the choice the provider family had already made explicitly.
+   The wrapper exists to expose a terraform call's stdout, stderr and exit code as step outputs, and nothing in either Terraform workflow reads them — the plan comes back from `plan.jsonl` and `plan.txt`, and the outcomes from the steps themselves.
+   The sweep also turned up a reason beyond consistency: the wrapper treats a `-detailed-exitcode` 2 as success and exits 0 itself, so `terraform-drift.yml`'s Plan step had two writers setting `exitcode` to *different* values — the wrapper terraform's 2, the step's own `$?` capture the wrapper's 0 — with which one the run sees decided by write order rather than by anything the workflow says.
+   Off, there is one writer and terraform's real exit code, so `exitcode == 2` means drift by construction.
 
 ## Additive backlog — explicitly out of scope
 

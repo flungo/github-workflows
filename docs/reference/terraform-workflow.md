@@ -72,6 +72,7 @@ Two ways to pause it, both read from the caller repo:
 - **A committed `.drift-paused` file** at the repo root — auditable, reviewed in the diff.
   Use it for a change set spanning multiple PRs: add it in the first PR, remove it in the last.
 
+A paused run does nothing else: it neither plans nor opens, updates or closes a drift issue.
 A `workflow_dispatch` with `force_run: true` overrides both.
 Default to *not* pausing: a change that will be merged gets applied anyway, so an extra scheduled apply is rarely a problem — reach for a pause only when the default branch will be knowingly divergent for a meaningful window.
 

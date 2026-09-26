@@ -230,9 +230,13 @@ jobs:
           label-description: Terraform drift was detected and remediated
 
       # A clean run clears both conditions, so both markers are closed — one
-      # step each, because each names the issue it is closing.
+      # step each, because each names the issue it is closing. The outcome
+      # check is load-bearing: when the pause skips the plan, its exitcode is
+      # null, which the expression engine coerces to 0 and so equates with
+      # '0'. Without it these steps would run on every paused day, against an
+      # actions checkout the pause also skipped.
       - name: Close the remediated-drift issue on a clean run
-        if: steps.plan.outputs.exitcode == '0'
+        if: steps.plan.outcome == 'success' && steps.plan.outputs.exitcode == '0'
         uses: ./.github-workflows/.github/actions/issue-upsert
         with:
           marker: '<!-- terraform-drift -->'
@@ -241,7 +245,7 @@ jobs:
           close-comment: No drift detected by the daily drift-remediation run ([run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) — closing.
 
       - name: Close the destroy-review issue on a clean run
-        if: steps.plan.outputs.exitcode == '0'
+        if: steps.plan.outcome == 'success' && steps.plan.outputs.exitcode == '0'
         uses: ./.github-workflows/.github/actions/issue-upsert
         with:
           marker: '<!-- terraform-drift-review -->'
